@@ -3,16 +3,39 @@ import Logo from '../components/common/Logo';
 import FloatingInput from '../components/auth/FloatingInput';
 import SocialButton from '../components/auth/SocialButton';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
-  const navigate = useNavigate(); // Hook'u tanımladık
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const { login, register, error, clearError } = useAuthStore();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Burada normalde API'ye istek atılır, şimdilik direkt yönlendiriyoruz
-    navigate('/dashboard');
-  }; // Sign In / Sign Up geçişi için state
+    setSubmitting(true);
+    clearError();
+
+    let success;
+    if (isLogin) {
+      success = await login(email, password);
+    } else {
+      success = await register(email, password);
+    }
+
+    setSubmitting(false);
+    if (success) {
+      navigate('/dashboard');
+    }
+  };
+
+  // Tab değiştirince hata mesajını temizle
+  const handleTabSwitch = (toLogin) => {
+    setIsLogin(toLogin);
+    clearError();
+  };
 
   return (
     <div className="bg-mesh font-body text-on-surface min-h-screen flex flex-col items-center justify-center selection:bg-primary/30 selection:text-white antialiased">
@@ -38,22 +61,41 @@ export default function Auth() {
           {/* Geçiş Butonları (Sign In / Sign Up) */}
           <div className="flex p-1.5 bg-surface-container-lowest/50 rounded-2xl mb-10 border border-white/5 relative">
             <button
-              onClick={() => setIsLogin(true)}
+              onClick={() => handleTabSwitch(true)}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${isLogin ? 'bg-surface-container-high text-on-surface shadow-lg' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
               Sign In
             </button>
             <button
-              onClick={() => setIsLogin(false)}
+              onClick={() => handleTabSwitch(false)}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${!isLogin ? 'bg-surface-container-high text-on-surface shadow-lg' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
               Sign Up
             </button>
           </div>
 
+          {/* Hata Mesajı */}
+          {error && (
+            <div className="mb-6 p-3 rounded-xl bg-error-container/20 border border-error-container/30 text-center">
+              <p className="text-sm text-red-400 font-medium">{error}</p>
+            </div>
+          )}
+
           <form className="space-y-7" onSubmit={handleSubmit}>
-            <FloatingInput id="email" type="email" label="Email Address" />
-            <FloatingInput id="password" type="password" label="Password" />
+            <FloatingInput 
+              id="email" 
+              type="email" 
+              label="Email Address" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <FloatingInput 
+              id="password" 
+              type="password" 
+              label="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-3 cursor-pointer group">
@@ -65,8 +107,22 @@ export default function Auth() {
               {isLogin && <a href="#" className="text-primary hover:text-white font-semibold transition-colors">Forgot password?</a>}
             </div>
 
-            <button type="submit" className="w-full py-4 bg-gradient-to-r from-primary-container to-primary-container/80 text-on-primary-container font-bold text-lg rounded-2xl shadow-xl shadow-primary-container/20 hover:shadow-primary-container/30 hover:brightness-110 active:scale-[0.98] transition-all duration-300">
-              Enter Workspace
+            <button 
+              type="submit" 
+              disabled={submitting}
+              className="w-full py-4 bg-gradient-to-r from-primary-container to-primary-container/80 text-on-primary-container font-bold text-lg rounded-2xl shadow-xl shadow-primary-container/20 hover:shadow-primary-container/30 hover:brightness-110 active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                isLogin ? 'Enter Workspace' : 'Create Account'
+              )}
             </button>
           </form>
 

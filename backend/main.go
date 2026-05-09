@@ -40,10 +40,16 @@ func main() {
 	siteHandler := handler.NewSiteHandler(store)
 	serveHandler := handler.NewServeHandler(store, cfg)
 
+	// 🔄 COGNITO_SWITCH: Lokal auth handler.
+	// Cognito'ya geçildiğinde bu handler kaldırılır,
+	// register/login işlemleri Cognito hosted UI'a bırakılır.
+	authHandler := handler.NewAuthHandler(store, cfg.JWTSecret)
+
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
-	// COGNITO_JWKS_URL boşsa → bypass (lokal dev)
-	// Doluysa → gerçek Cognito doğrulaması
-	auth := middleware.CognitoAuth(cfg.CognitoJWKSURL)
+	// 🔄 COGNITO_SWITCH: Lokal JWT auth.
+	// Cognito'ya geçildiğinde:
+	//   auth := middleware.CognitoAuth(cfg.CognitoJWKSURL)
+	auth := middleware.JWTAuth(cfg.JWTSecret)
 
 	// ─── Router (saf net/http — Go 1.22 pattern matching) ────────────────────
 	mux := http.NewServeMux()
@@ -53,6 +59,12 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
+
+	// ── 🔄 COGNITO_SWITCH: Lokal Auth API ─────────────────────────────────────
+	// Cognito'ya geçildiğinde bu 2 route kaldırılır.
+	mux.HandleFunc("POST /api/auth/register", authHandler.Register)
+	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
+	mux.Handle("GET /api/auth/me", auth(http.HandlerFunc(authHandler.Me)))
 
 	// ── Site API ──────────────────────────────────────────────────────────────
 	mux.Handle("GET /api/sites", auth(http.HandlerFunc(siteHandler.List)))

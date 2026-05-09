@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function TopNavBar() {
+export default function TopNavBar({ onLogout, userEmail }) {
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#131313] font-inter antialiased tracking-tight">
       <div className="flex items-center gap-8">
@@ -33,10 +33,17 @@ export default function TopNavBar() {
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-primary-container text-on-primary-container rounded-lg font-semibold hover:opacity-90 transition-all scale-95 active:transition-transform">
-            Publish
+          {userEmail && <span className="text-on-surface-variant text-xs hidden lg:block">{userEmail}</span>}
+          <button 
+            onClick={onLogout}
+            className="px-4 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
+            Çıkış
           </button>
-          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfovWKyga9JRARF6yPsBCJR-HeB7PSiW5mR9njgA1l1nDre0LXD4OHQtCdjcCOux1dFRT-Rio3Ju4tmkfSUfyrDYuxxO6WGTePLScKon6yidCtSRFO09fLbQEi4HtSwxZCVATdNOqKSq_oQahA8raDZxVAQkZER8qNbDQc0wWs16YmE2kDL3tNgUW1ko33e3IjTr97cKZ2_iGUw3eZpojANvrEF191v0agYTPlXilB7r6c7yPh_da0KSh4HtMRUFeK6bpc09fu" alt="User profile" className="w-8 h-8 rounded-full border border-outline-variant/20" />
+          <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">
+            {userEmail ? userEmail[0].toUpperCase() : 'U'}
+          </div>
         </div>
       </div>
     </header>

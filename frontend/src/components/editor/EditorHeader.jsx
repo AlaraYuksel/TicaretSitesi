@@ -330,11 +330,13 @@ ${pagesHTML}
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function EditorHeader() {
+export default function EditorHeader({ siteId, siteTitle }) {
   const navigate = useNavigate();
   const [showExport, setShowExport] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+  const [publishStatus, setPublishStatus] = useState('idle'); // idle | publishing | published | error
   const {
-    undo, redo, getActivePage, pages,
+    undo, redo, getActivePage, pages, canvasHeights,
     activeBreakpoint, setBreakpoint,
     getActiveCanvasWidth, getActiveCanvasHeight,
   } = useEditorStore();
@@ -342,6 +344,58 @@ export default function EditorHeader() {
   const activePage = getActivePage();
   const canvasWidth = getActiveCanvasWidth();
   const canvasHeight = getActiveCanvasHeight();
+
+  // ── Save → Backend ───────────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (!siteId) return;
+    setSaveStatus('saving');
+    try {
+      const { apiSaveSiteData } = await import('../../lib/api');
+      await apiSaveSiteData(siteId, { pages, canvasHeights });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      console.error('Kaydetme hatası:', err);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  // ── Publish → Backend ────────────────────────────────────────────────────
+  const handlePublish = async () => {
+    if (!siteId) return;
+    // Önce kaydet, sonra yayınla
+    setSaveStatus('saving');
+    try {
+      const { apiSaveSiteData, apiPublishSite } = await import('../../lib/api');
+      await apiSaveSiteData(siteId, { pages, canvasHeights });
+      setSaveStatus('saved');
+      
+      setPublishStatus('publishing');
+      await apiPublishSite(siteId);
+      setPublishStatus('published');
+      setTimeout(() => {
+        setPublishStatus('idle');
+        setSaveStatus('idle');
+      }, 2000);
+    } catch (err) {
+      console.error('Yayınlama hatası:', err);
+      setPublishStatus('error');
+      setTimeout(() => setPublishStatus('idle'), 3000);
+    }
+  };
+
+  // Ctrl+S ile kaydet
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [siteId, pages, canvasHeights]);
 
   const handlePreview = () => {
     const html = generateHTML(pages ?? [activePage]);
@@ -363,6 +417,20 @@ export default function EditorHeader() {
     a.click();
   };
 
+  const saveLabel = {
+    idle: 'Save',
+    saving: 'Saving...',
+    saved: 'Saved ✓',
+    error: 'Error!',
+  }[saveStatus];
+
+  const publishLabel = {
+    idle: 'Publish',
+    publishing: 'Publishing...',
+    published: 'Published ✓',
+    error: 'Error!',
+  }[publishStatus];
+
   return (
     <header style={{ position: 'fixed', top: 0, width: '100%', zIndex: 50, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#0e0e0e', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       {/* Left */}
@@ -371,7 +439,7 @@ export default function EditorHeader() {
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '5px 12px', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
           <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#555' }}>home</span>
-          <span style={{ fontSize: 12, color: '#666' }}>Home</span>
+          <span style={{ fontSize: 12, color: '#666' }}>{siteTitle || 'Home'}</span>
           {activePage && <><span style={{ color: '#333', fontSize: 12 }}>/</span><span style={{ fontSize: 12, color: '#e5e2e1', fontWeight: 600 }}>{activePage.name}</span></>}
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />
@@ -405,6 +473,20 @@ export default function EditorHeader() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>{canvasWidth} × {Math.round(canvasHeight)}</span>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />
+        
+        {/* Save Button */}
+        <button onClick={handleSave} disabled={saveStatus === 'saving'} style={{ 
+          background: 'none', border: '1px solid rgba(255,255,255,0.08)', 
+          color: saveStatus === 'saved' ? '#10b981' : saveStatus === 'error' ? '#ef4444' : '#888', 
+          borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, 
+          display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+          borderColor: saveStatus === 'saved' ? 'rgba(16,185,129,0.3)' : saveStatus === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.08)',
+        }}
+          onMouseEnter={e => { if (saveStatus === 'idle') { e.currentTarget.style.color = '#e5e2e1'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}}
+          onMouseLeave={e => { if (saveStatus === 'idle') { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}}>
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{saveStatus === 'saved' ? 'check_circle' : saveStatus === 'error' ? 'error' : 'save'}</span>{saveLabel}
+        </button>
+
         <button onClick={handlePreview} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', color: '#888', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#e5e2e1'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
@@ -427,9 +509,16 @@ export default function EditorHeader() {
             </div>
           )}
         </div>
-        <button style={{ background: '#4b8eff', border: 'none', color: '#fff', borderRadius: 8, padding: '7px 20px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-          onMouseEnter={e => e.currentTarget.style.opacity = '0.85'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-          Publish
+        <button onClick={handlePublish} disabled={publishStatus === 'publishing'} style={{ 
+          background: publishStatus === 'published' ? '#10b981' : publishStatus === 'error' ? '#ef4444' : '#4b8eff', 
+          border: 'none', color: '#fff', borderRadius: 8, padding: '7px 20px', 
+          cursor: publishStatus === 'publishing' ? 'wait' : 'pointer', 
+          fontSize: 12, fontWeight: 700, transition: 'all 0.2s',
+          opacity: publishStatus === 'publishing' ? 0.7 : 1,
+        }}
+          onMouseEnter={e => { if (publishStatus === 'idle') e.currentTarget.style.opacity = '0.85'; }} 
+          onMouseLeave={e => { if (publishStatus === 'idle') e.currentTarget.style.opacity = '1'; }}>
+          {publishLabel}
         </button>
         <img alt="User" style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.1)' }}
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkdjCZYlTiVi7d6pEBMx7f-m_CjtyyRwq0LKDerbZeJCVo8xusvNrzQeW51kqBNdZkButHHdEmgWcewAKqkXtGpvThq5LmjTLVtLPl1Ylh012df49BqYRzT8obHE9JDVPoi3W4Tf3W9zeN3tgbsfiBPig9HlgkA0Nw_g6s9fs07RSerCzC0BgPVOwk5ZETBns7nJss6zhPjxmi4yPnpyoUIKjpJunO_1XvsGySPbih_hBeReYxotV9MfSYzJTtDpS802eE1JFq"

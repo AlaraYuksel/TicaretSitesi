@@ -1,22 +1,89 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import TopNavBar from '../components/dashboard/TopNavBar';
 import SideNavBar from '../components/dashboard/SideNavBar';
 import ProjectCard from '../components/dashboard/ProjectCard';
-import { useNavigate } from 'react-router-dom'; // Bunu ekledik
+import { useNavigate } from 'react-router-dom';
+import { apiListSites, apiCreateSite, apiDeleteSite } from '../lib/api';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Dashboard() {
-  // Örnek Proje Verileri (İleride API'den gelecek)
   const navigate = useNavigate();
-  const projects = [
-    { id: 1, title: 'Luminal Portfolio', lastEdited: 'Edited 2 hours ago', imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBNCr0IcJQkyG3v0ht8RgtXMZrWZzUU1DVLdDJYJBOAHHMMgq7E4Ty9R8c9gW7FCsCmgZ0T2YfUKfgTEApx11zNwmTVRMI2PY1W17sbGe35ca9GbxRtRUZw77Z2QhTIDMsv6rWJiiV3mWH-gpAUm-88BENIcWGfYVKJCDrdqfkuKFU7Sbn895dU_ASaoUJIwBXHyGWLPbA5BYnwrdNb01SkDhPdvWuZBZnmCf0b2YZ6_h_YiTyPfXM_WDVVsqdtc9TMUDkbUIcw', isActive: true },
-    { id: 2, title: 'Monolith Studio', lastEdited: 'Edited 1 day ago', imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCaRISHn1qNnVwpVzDxHpcx02QMB3QB0y7pX8h3gSHA3wvidKIz1cg66L47DvJibZYkPXCuNHMOBkrSPAI06KaNYyZHUaAAPq79SvLMnYvDxnMrkIT5157EUrR3vW81IzuL2z1TAecxQMZqs5TiFSWDGQMWpjRPKjv0M2SB2soKaTeRuMHKcyQtVclgyXAyYHvk1GIjQasPN_BjoMl4qr4eXF1prMV74CLhboSBL5onuQO0wUN1COIMvdaWlZYQ6xZvT-pQtV6O', isActive: false },
-    { id: 3, title: 'Vector SaaS', lastEdited: 'Edited 3 days ago', imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBHxPTr5F2c_A7__uMbDiGOyLRCC9foJUx6bfJSdpm7EiMJmZWlylpnPq3DcpOObo-_PE3rriszftTDjtMcCjK3U2gSMsOOVBL-dYoi-c1geTOvAI1biL9ISeBbf9s-lLOJlkoOrxkFGcxa8SHc-gAkYgVTbjhdLxrrrOz78ikG6dgMeTO-wktW8-BjYKtcstDX62u2Uc2_Fia9BjXg2QqrBwQzUL958jaky03ZStFcqKeYM8_k1GqTsu8lHxm4VpZsld1MlagX', isActive: false },
-    { id: 4, title: 'Devflow App', lastEdited: 'Edited Oct 24, 2023', imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZv8ioLt5SMrsRR8wR26ll4WrMtNGgOlXY7TgMliACd-NDUSsqBst_Rl8tgbSXgVkVggWecdeuflFHh4xqxrbt6YkxEroRf059xVNWGfHUmMVt12ORAhRWmXHPeTXOCP4cXhf_pZHp3R5-97B0OhsJiFaELIDxlO1C_nbM64lKOh1wFprCLzTu6KbqJBGFWuD93-sQmP7aCooie8IRIBjz_HfD47RVGaAAHOLSqW27T2vAAdWKDn4YvGhPga1i6FXtXkYpmZfs', isActive: false },
-  ];
+  const { user, logout } = useAuthStore();
+  const [sites, setSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [showNewSiteModal, setShowNewSiteModal] = useState(false);
+  const [newSiteTitle, setNewSiteTitle] = useState('');
+
+  // Siteleri yükle
+  useEffect(() => {
+    loadSites();
+  }, []);
+
+  async function loadSites() {
+    try {
+      setLoading(true);
+      const data = await apiListSites();
+      setSites(data || []);
+    } catch (err) {
+      if (err.message === 'UNAUTHORIZED') {
+        navigate('/');
+        return;
+      }
+      console.error('Sites yüklenemedi:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreateSite() {
+    if (!newSiteTitle.trim()) return;
+    try {
+      setCreating(true);
+      const site = await apiCreateSite(newSiteTitle.trim());
+      setShowNewSiteModal(false);
+      setNewSiteTitle('');
+      navigate(`/editor/${site.id}`);
+    } catch (err) {
+      console.error('Site oluşturulamadı:', err);
+      alert('Site oluşturulamadı: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDeleteSite(e, siteId) {
+    e.stopPropagation();
+    if (!confirm('Bu siteyi silmek istediğinizden emin misiniz?')) return;
+    try {
+      await apiDeleteSite(siteId);
+      setSites(s => s.filter(site => site.id !== siteId));
+    } catch (err) {
+      console.error('Site silinemedi:', err);
+    }
+  }
+
+  function handleLogout() {
+    logout();
+    navigate('/');
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffH = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffH < 1) return 'Az önce düzenlendi';
+    if (diffH < 24) return `${diffH} saat önce düzenlendi`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `${diffD} gün önce düzenlendi`;
+    return `${d.toLocaleDateString('tr-TR')} tarihinde düzenlendi`;
+  }
 
   return (
     <div className="bg-background text-on-surface font-body antialiased h-screen overflow-y-auto">
-      <TopNavBar />
+      <TopNavBar onLogout={handleLogout} userEmail={user?.email} />
       <SideNavBar />
       
       {/* Ana İçerik Alanı */}
@@ -30,49 +97,85 @@ export default function Dashboard() {
                 <p className="text-on-surface-variant text-sm">Manage and evolve your kinetic digital experiences.</p>
             </div>
       
-            {/* onClick ekledik */}
             <button 
-                 onClick={() => navigate('/editor')}
-             className="group flex items-center gap-3 px-6 py-4 bg-primary-container text-on-primary-container rounded-xl font-bold shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-95"
+              onClick={() => setShowNewSiteModal(true)}
+              className="group flex items-center gap-3 px-6 py-4 bg-primary-container text-on-primary-container rounded-xl font-bold shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-95"
             >
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
-            Create New Site
-        </button>
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+              Create New Site
+            </button>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex items-center gap-3 text-on-surface-variant">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <span className="text-sm">Siteler yükleniyor...</span>
+              </div>
             </div>
+          )}
 
           {/* Grid Alanı */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            
-            {/* Projeler */}
-            {projects.map(project => (
-            <div key={project.id} onClick={() => navigate('/editor')} className="cursor-pointer">
-            <ProjectCard 
-                title={project.title}
-                lastEdited={project.lastEdited}
-                imageUrl={project.imageUrl}
-                isActive={project.isActive}
-              />
-            </div>
-      ))}
+          {!loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              
+              {/* Projeler */}
+              {sites.map(site => (
+                <div key={site.id} className="relative group">
+                  <div onClick={() => navigate(`/editor/${site.id}`)} className="cursor-pointer">
+                    <ProjectCard 
+                      title={site.title}
+                      lastEdited={formatDate(site.updated_at)}
+                      imageUrl={site.thumbnail_url || ''}
+                      isActive={site.is_published}
+                    />
+                  </div>
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => handleDeleteSite(e, site.id)}
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/80 hover:bg-red-500 text-white rounded-lg p-1.5 z-10"
+                    title="Siteyi sil"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                </div>
+              ))}
 
-            {/* Yeni Proje Ekle (Empty State / Placeholder) */}
-            <div className="border-2 border-dashed border-outline-variant/30 rounded-xl flex flex-col items-center justify-center p-8 bg-transparent hover:bg-surface-container-low/50 hover:border-primary/50 transition-all group cursor-pointer aspect-video md:aspect-auto h-full">
-              <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center mb-4 group-hover:bg-primary-container transition-colors">
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-on-primary-container">add</span>
+              {/* Yeni Proje Ekle (Empty State / Placeholder) */}
+              <div 
+                onClick={() => setShowNewSiteModal(true)}
+                className="border-2 border-dashed border-outline-variant/30 rounded-xl flex flex-col items-center justify-center p-8 bg-transparent hover:bg-surface-container-low/50 hover:border-primary/50 transition-all group cursor-pointer aspect-video md:aspect-auto h-full min-h-[200px]"
+              >
+                <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center mb-4 group-hover:bg-primary-container transition-colors">
+                  <span className="material-symbols-outlined text-on-surface-variant group-hover:text-on-primary-container">add</span>
+                </div>
+                <span className="text-on-surface font-medium">New Project</span>
+                <span className="technical-label mt-1">Select a blank canvas</span>
               </div>
-              <span className="text-on-surface font-medium">New Project</span>
-              <span className="technical-label mt-1">Select a blank canvas</span>
             </div>
-          </div>
+          )}
+
+          {/* Boş durum */}
+          {!loading && sites.length === 0 && (
+            <div className="text-center py-16">
+              <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4 block" style={{ fontVariationSettings: "'FILL' 1" }}>web</span>
+              <h3 className="text-xl font-bold text-on-surface mb-2">Henüz siteniz yok</h3>
+              <p className="text-on-surface-variant text-sm mb-6">İlk sitenizi oluşturarak başlayın!</p>
+            </div>
+          )}
 
           {/* Alt İstatistikler (Footer Stats) */}
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="col-span-2 bg-[#1c1b1b] p-8 rounded-2xl flex items-center justify-between border border-outline-variant/5">
               <div>
                 <h4 className="text-on-surface font-bold text-xl mb-1">Storage Usage</h4>
-                <p className="technical-label mb-4">4.2 GB of 10 GB used</p>
+                <p className="technical-label mb-4">{user?.storage_used ? (user.storage_used / 1e9).toFixed(1) : '0'} GB of {user?.storage_limit ? (user.storage_limit / 1e9).toFixed(0) : '10'} GB used</p>
                 <div className="w-64 h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                  <div className="w-5/12 h-full bg-primary-container"></div>
+                  <div className="h-full bg-primary-container" style={{ width: `${user?.storage_limit ? (user.storage_used / user.storage_limit * 100) : 0}%` }}></div>
                 </div>
               </div>
               <button className="text-primary font-semibold hover:underline decoration-2 underline-offset-4">Upgrade Plan</button>
@@ -81,12 +184,48 @@ export default function Dashboard() {
             <div className="bg-primary-container/5 p-8 rounded-2xl border border-primary/10">
               <span className="material-symbols-outlined text-primary-container mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
               <h4 className="text-on-surface font-bold text-xl mb-1">AI Insights</h4>
-              <p className="technical-label">Optimization tips available for 2 sites.</p>
+              <p className="technical-label">Optimization tips available for {sites.filter(s => s.is_published).length} sites.</p>
             </div>
           </div>
 
         </div>
       </main>
+
+      {/* Yeni Site Modal */}
+      {showNewSiteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center" onClick={() => setShowNewSiteModal(false)}>
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-on-surface mb-2">Yeni Site Oluştur</h2>
+            <p className="text-on-surface-variant text-sm mb-6">Sitenize bir isim verin ve başlayın.</p>
+            
+            <input 
+              type="text"
+              placeholder="Site adı (ör: Portfolyom)"
+              value={newSiteTitle}
+              onChange={e => setNewSiteTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateSite()}
+              autoFocus
+              className="w-full px-4 py-3 bg-[#141414] border border-white/10 rounded-xl text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all mb-6"
+            />
+            
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => setShowNewSiteModal(false)}
+                className="px-5 py-2.5 rounded-xl text-on-surface-variant font-medium hover:bg-white/5 transition-colors"
+              >
+                İptal
+              </button>
+              <button 
+                onClick={handleCreateSite}
+                disabled={creating || !newSiteTitle.trim()}
+                className="px-5 py-2.5 rounded-xl bg-primary-container text-on-primary-container font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creating ? 'Oluşturuluyor...' : 'Oluştur'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

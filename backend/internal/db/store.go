@@ -65,6 +65,9 @@ type User struct {
 	StorageLimit int64      `json:"storage_limit"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// 🔄 COGNITO_SWITCH: Lokal auth için. Cognito'da bu alan yok.
+	PasswordHash *string    `json:"-"`
 }
 
 // ─── Site Sorguları ───────────────────────────────────────────────────────────
@@ -288,6 +291,71 @@ func (s *Store) UpsertUser(ctx context.Context, cognitoSub, email string) (*User
 		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
 	)
 	return &u, err
+}
+
+// ─── 🔄 COGNITO_SWITCH: Lokal Auth Sorguları ─────────────────────────────────
+// Cognito'ya geçildiğinde aşağıdaki iki fonksiyon kaldırılabilir.
+
+// CreateUserLocal — Lokal kayıt (register). Bcrypt hash'lenmiş parola ile kullanıcı oluşturur.
+func (s *Store) CreateUserLocal(ctx context.Context, email, passwordHash string) (*User, error) {
+	const q = `
+		INSERT INTO users (email, password_hash)
+		VALUES ($1, $2)
+		RETURNING id, email, full_name, avatar_url, plan,
+		          storage_used, storage_limit, created_at, updated_at`
+
+	row := s.pool.QueryRow(ctx, q, email, passwordHash)
+	var u User
+	err := row.Scan(
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("CreateUserLocal: %w", err)
+	}
+	return &u, nil
+}
+
+// GetUserByEmail — Lokal login. Email ile kullanıcı arar, password_hash döner.
+func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	const q = `
+		SELECT id, email, full_name, avatar_url, plan,
+		       storage_used, storage_limit, created_at, updated_at,
+		       password_hash
+		FROM users
+		WHERE email = $1`
+
+	row := s.pool.QueryRow(ctx, q, email)
+	var u User
+	err := row.Scan(
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+		&u.PasswordHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByEmail: %w", err)
+	}
+	return &u, nil
+}
+
+// GetUserByID — Token'dan gelen user ID ile kullanıcıyı getirir.
+func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
+	const q = `
+		SELECT id, email, full_name, avatar_url, plan,
+		       storage_used, storage_limit, created_at, updated_at
+		FROM users
+		WHERE id = $1`
+
+	row := s.pool.QueryRow(ctx, q, id)
+	var u User
+	err := row.Scan(
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByID: %w", err)
+	}
+	return &u, nil
 }
 
 // ─── Yardımcı Fonksiyonlar ───────────────────────────────────────────────────

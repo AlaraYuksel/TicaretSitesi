@@ -1,11 +1,18 @@
+// 🔄 COGNITO_SWITCH: Bu dosyanın tamamı lokal JWT auth içindir.
+// Cognito'ya geçildiğinde:
+//   1. JWTAuth fonksiyonunu CognitoAuth ile değiştirin
+//   2. keyfunc/v3 ile JWKS tabanlı doğrulamaya geçin
+//   3. Claims'den "sub" ve "email" okuyun
+// Eski Cognito kodu git geçmişinde mevcuttur.
+
 package middleware
 
 import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -13,35 +20,28 @@ import (
 type contextKey string
 
 const (
-	// UserIDKey — Cognito sub claim değeri. Handler'larda r.Context().Value(middleware.UserIDKey) ile alınır.
+	// UserIDKey — JWT'den gelen user ID. Handler'larda r.Context().Value(middleware.UserIDKey) ile alınır.
 	UserIDKey contextKey = "user_id"
-	// UserEmailKey — Cognito email claim'i.
+	// UserEmailKey — JWT'den gelen email.
 	UserEmailKey contextKey = "user_email"
 )
 
-// CognitoAuth Cognito JWKS URL'sini kullanarak JWT doğrulayan middleware üretir.
-// jwksURL boşsa (Cognito henüz kurulmadıysa) middleware bypass moduna geçer —
-// bu sayede lokal geliştirme Cognito olmadan çalışabilir.
-func CognitoAuth(jwksURL string) func(http.Handler) http.Handler {
-	// jwksURL boşsa → geliştirme modu, auth bypass
-	if jwksURL == "" {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Lokal test için sabit bir user ID inject et (UUID formatında olmalı)
-				ctx := context.WithValue(r.Context(), UserIDKey, "00000000-0000-0000-0000-000000000000")
-				ctx = context.WithValue(ctx, UserEmailKey, "dev@local.com")
-				next.ServeHTTP(w, r.WithContext(ctx))
-			})
-		}
+// 🔄 COGNITO_SWITCH: GenerateToken — Lokal auth için JWT üretir.
+// Cognito modunda bu fonksiyon kullanılmaz, token Cognito'dan gelir.
+func GenerateToken(userID, email, secret string) (string, error) {
+	claims := jwt.MapClaims{
+		"sub":   userID,
+		"email": email,
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(7 * 24 * time.Hour).Unix(), // 7 gün
 	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
 
-	// Cognito JWKS'ten public key'leri indir ve otomatik yenile
-	kf, err := keyfunc.NewDefaultCtx(context.Background(), []string{jwksURL})
-	if err != nil {
-		// JWKS indirilemezse uygulama başlamaz — erken hata daha iyidir
-		panic("Cognito JWKS başlatılamadı: " + err.Error())
-	}
-
+// 🔄 COGNITO_SWITCH: JWTAuth — HMAC-SHA256 ile JWT doğrulayan middleware.
+// Cognito'ya geçildiğinde bu fonksiyon yerine CognitoAuth (JWKS tabanlı) kullanılır.
+func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -52,7 +52,13 @@ func CognitoAuth(jwksURL string) func(http.Handler) http.Handler {
 
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-			token, err := jwt.Parse(tokenStr, kf.Keyfunc)
+			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+				// HMAC signing method kontrolü
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrSignatureInvalid
+				}
+				return []byte(jwtSecret), nil
+			})
 			if err != nil || !token.Valid {
 				jsonError(w, "Geçersiz token", http.StatusUnauthorized)
 				return
@@ -64,9 +70,8 @@ func CognitoAuth(jwksURL string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Cognito JWT standart claim'leri
-			sub, _ := claims["sub"].(string)          // kullanıcı ID'si
-			email, _ := claims["email"].(string)       // email
+			sub, _ := claims["sub"].(string)
+			email, _ := claims["email"].(string)
 
 			ctx := context.WithValue(r.Context(), UserIDKey, sub)
 			ctx = context.WithValue(ctx, UserEmailKey, email)
@@ -79,6 +84,11 @@ func CognitoAuth(jwksURL string) func(http.Handler) http.Handler {
 func UserIDFromCtx(ctx context.Context) string {
 	id, _ := ctx.Value(UserIDKey).(string)
 	return id
+}
+
+func UserEmailFromCtx(ctx context.Context) string {
+	email, _ := ctx.Value(UserEmailKey).(string)
+	return email
 }
 
 func jsonError(w http.ResponseWriter, msg string, status int) {
