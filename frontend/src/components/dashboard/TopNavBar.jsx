@@ -5,11 +5,6 @@ export default function TopNavBar({ onLogout, userEmail }) {
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#131313] font-inter antialiased tracking-tight">
       <div className="flex items-center gap-8">
         <span className="text-xl font-bold text-[#e5e2e1]">The Kinetic Architect</span>
-        <div className="hidden md:flex items-center gap-6">
-          <a href="#" className="text-[#4b8eff] border-b-2 border-[#4b8eff] pb-1">Desktop</a>
-          <a href="#" className="text-[#c1c6d7] hover:text-[#e5e2e1] transition-colors duration-200">Tablet</a>
-          <a href="#" className="text-[#c1c6d7] hover:text-[#e5e2e1] transition-colors duration-200">Mobile</a>
-        </div>
       </div>
       
       <div className="flex-1 max-w-xl px-8">
