@@ -1,0 +1,236 @@
+# Frontend Yapı Analizi & Veritabanı Tasarımı
+
+## Frontend Yapısı Özeti
+
+### Teknoloji Stack
+- **Framework**: React 19 + Vite 8
+- **State**: Zustand
+- **Routing**: React Router DOM v7
+- **CSS**: TailwindCSS v4
+
+### Uygulama Akışı
+```
+Auth (/) → Dashboard (/dashboard) → Editor (/editor)
+```
+
+### Veri Modeli (useEditorStore.js'den çıkarılan)
+
+#### Sayfa (Page)
+```json
+{
+  "id": "el_1234_abc",
+  "name": "Home",
+  "elements": [...]
+}
+```
+
+#### Element Yapısı
+```json
+{
+  "id": "el_1234_abc",
+  "type": "heading | paragraph | button | image | video | box | section | ...",
+  "name": "Heading 1",
+  "visible": true,
+  "locked": false,
+  "props": { /* type'a göre değişir */ },
+  "children": [ /* container types için */ ],
+  "spacing": { "margin": {top,right,bottom,left}, "padding": {top,right,bottom,left} },
+  "shadow": null,
+  "positionMode": "absolute | fixed | sticky",
+  "overflow": "hidden",
+  "visibleBreakpoints": { "desktop": true, "tablet": true, "mobile": true },
+  "linkAction": { "type": "none | page | url | scrollTo", "target": "" },
+  "breakpoints": {
+    "desktop": { "x": 0, "y": 0, "width": 380, "height": 72 },
+    "tablet": null,
+    "mobile": null
+  }
+}
+```
+
+#### Desteklenen Element Tipleri (28 adet)
+| Kategori | Tipler |
+|----------|--------|
+| **Text** | heading, paragraph, dividerText |
+| **Interactive** | button, form, accordion, tabs, countdown, progressBar, socialLinks |
+| **Media** | image, video, codeBlock |
+| **Shapes** | box, section, divider, icon, badge, table |
+| **Layout** | flexContainer, gridContainer, horizontalScroll |
+| **Navigation** | navbar, sidebar |
+| **Blocks** | hero, card, testimonial, avatar |
+
+#### Breakpoint Sistemi
+```
+desktop: 1440px
+tablet:  768px
+mobile:  390px
+```
+
+### Export Yapısı
+- **JSON Export**: `{ pages: [...] }` — tüm sayfaları JSON olarak indirme
+- **HTML Export**: `generateHTML(pages)` — responsive HTML oluşturma (3 breakpoint)
+- **Preview**: Blob URL ile yeni sekmede açma
+
+### Dashboard
+- Hardcoded projeler (henüz API yok)
+- Storage kullanım bilgisi
+- "Create New Site" → `/editor`'a yönlendirme
+
+### Auth
+- Email/Password login/register
+- Google & GitHub social login placeholder
+- Submit → `/dashboard`'a yönlendirme (API bağlantısı yok)
+
+---
+
+## Önerilen Veritabanı Yapısı
+
+Frontend yapısına uygun, domain/subdomain sistemini destekleyen tablo tasarımı:
+
+```sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- 1. KULLANICILAR
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE TABLE users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email         VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name     VARCHAR(255),
+    avatar_url    TEXT,
+    plan          VARCHAR(50) DEFAULT 'free',       -- free, pro, business
+    storage_used  BIGINT DEFAULT 0,                 -- bytes cinsinden
+    storage_limit BIGINT DEFAULT 10737418240,       -- 10 GB default
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 2. SİTELER (Domain/Subdomain desteği ile)
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE TABLE sites (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Temel bilgiler
+    title           VARCHAR(255) NOT NULL,             -- "Luminal Portfolio"
+    description     TEXT,
+    thumbnail_url   TEXT,                              -- Dashboard'da görünen önizleme
+    
+    -- Domain sistemi
+    subdomain       VARCHAR(63) UNIQUE,                -- merhaba → merhaba.websitedomaini.com
+    custom_domain   VARCHAR(255) UNIQUE,               -- www.kullanicinin-domaini.com
+    
+    -- İçerik (frontend'in JSON export'u ile birebir uyumlu)
+    site_data       JSONB NOT NULL DEFAULT '{"pages":[]}',  -- { pages: [...] }
+    
+    -- Yayınlama
+    is_published    BOOLEAN DEFAULT FALSE,
+    published_at    TIMESTAMPTZ,
+    published_url   TEXT,                              -- Yayınlanmış URL
+    
+    -- Breakpoint ayarları
+    canvas_heights  JSONB DEFAULT '{"desktop":900,"tablet":900,"mobile":900}',
+    
+    -- Meta
+    favicon_url     TEXT,
+    meta_title      VARCHAR(255),
+    meta_description TEXT,
+    
+    -- Zaman damgaları
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 3. SAYFALAR (Opsiyonel — site_data JSONB içinde de tutulabilir
+--    ama ayrı tablo olarak daha granüler kontrol sağlar)
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE TABLE pages (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    site_id     UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    name        VARCHAR(255) NOT NULL,                 -- "Home", "About"
+    slug        VARCHAR(255) NOT NULL DEFAULT '/',     -- /, /hakkinda
+    elements    JSONB NOT NULL DEFAULT '[]',           -- Element dizisi
+    sort_order  INT DEFAULT 0,
+    is_homepage BOOLEAN DEFAULT FALSE,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(site_id, slug)
+);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 4. MEDYA (Yüklenen görseller/videolar)
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE TABLE media (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    site_id     UUID REFERENCES sites(id) ON DELETE SET NULL,
+    filename    VARCHAR(255) NOT NULL,
+    mime_type   VARCHAR(100) NOT NULL,
+    file_size   BIGINT NOT NULL,                       -- bytes
+    url         TEXT NOT NULL,                          -- CDN veya storage URL
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 5. İNDEKSLER (Hızlı domain/subdomain lookup)
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE INDEX idx_sites_subdomain ON sites(subdomain) WHERE subdomain IS NOT NULL;
+CREATE INDEX idx_sites_custom_domain ON sites(custom_domain) WHERE custom_domain IS NOT NULL;
+CREATE INDEX idx_sites_user_id ON sites(user_id);
+CREATE INDEX idx_sites_published ON sites(is_published) WHERE is_published = TRUE;
+CREATE INDEX idx_pages_site_id ON pages(site_id);
+CREATE INDEX idx_pages_sort_order ON pages(site_id, sort_order);
+CREATE INDEX idx_media_user_id ON media(user_id);
+CREATE INDEX idx_media_site_id ON media(site_id);
+```
+
+## Domain Routing Akışı
+
+```
+GET https://merhaba.websitedomaini.com
+        │
+        ▼
+   Host header parse et → "merhaba"
+        │
+        ▼
+   SELECT * FROM sites
+   WHERE (subdomain = 'merhaba' OR custom_domain = 'merhaba.websitedomaini.com')
+     AND is_published = TRUE
+        │
+        ├── Site bulundu → site_data JSONB'den HTML üret ve serve et
+        │
+        └── Bulunamadı → 404 sayfası
+```
+
+## site_data JSONB Yapısı (Frontend ile %100 uyumlu)
+```json
+{
+  "pages": [
+    {
+      "id": "el_123_abc",
+      "name": "Home",
+      "elements": [
+        {
+          "id": "el_456_def",
+          "type": "heading",
+          "name": "Heading 1",
+          "visible": true,
+          "locked": false,
+          "props": {
+            "text": "Merhaba Dünya",
+            "fontSize": 48,
+            "fontWeight": "800",
+            "color": "#e5e2e1"
+          },
+          "breakpoints": {
+            "desktop": { "x": 100, "y": 50, "width": 380, "height": 72 },
+            "tablet": null,
+            "mobile": null
+          }
+        }
+      ]
+    }
+  ]
+}
+```

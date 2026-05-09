@@ -1,0 +1,20 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "./db/query"        # sqlc'nin okuyacağı .sql dosyaları
+    schema: "./db/migrations"    # tablo şemaları
+    gen:
+      go:
+        package: "sqlcdb"
+        out: "./db/sqlc"          # üretilen Go kodunun çıkacağı klasör
+        sql_package: "pgx/v5"    # lib/pq yerine pgx/v5
+        emit_json_tags: true
+        emit_interface: true
+        emit_empty_slices: true
+        overrides:
+          # JSONB kolonları → json.RawMessage (Go'da doğrudan marshal/unmarshal)
+          - db_type: "jsonb"
+            go_type: "encoding/json.RawMessage"
+          # UUID kolonları → string (pgx/v5 UUID → string dönüşümünü yapar)
+          - db_type: "uuid"
+            go_type: "string"

@@ -1,0 +1,100 @@
+/* Tailwind Çekirdeği ve Pluginler */
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+/* HTML etiketindeki 'class="dark"' mantığının v4 karşılığı */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Eski tailwind.config.js temanın v4 formatına dönüştürülmüş hali */
+@theme {
+  /* Renk Paleti */
+  --color-surface-bright: #393939;
+  --color-primary: #adc6ff;
+  --color-primary-container: #4b8eff;
+  --color-on-primary-container: #00285c;
+  --color-surface-container: #201f1f;
+  --color-surface-container-low: #1c1b1b;
+  --color-surface-container-highest: #353534;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #c1c6d7;
+  --color-outline-variant: #414755;
+  --color-background: #131313;
+  --color-tertiary: #ffb595;
+  --color-tertiary-container: #ef6719;
+  --color-error-container: #93000a;
+  
+  /* Fontlar */
+  --font-headline: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+  
+  /* Özel Border Radius değerlerin */
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+/* Kendi yazdığın özel CSS sınıfları */
+@utility canvas-dots {
+  background-image: radial-gradient(var(--color-surface-container-highest) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* index.css dosyasının en altı */
+
+@utility glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@utility bg-mesh {
+  background-color: #0a0a0a;
+  background-image: 
+      radial-gradient(at 0% 0%, rgba(75, 142, 255, 0.12) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(239, 103, 25, 0.08) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(173, 198, 255, 0.05) 0px, transparent 50%);
+}
+
+@utility floating-label-input {
+  &:focus-within label,
+  & input:not(:placeholder-shown) + label {
+      transform: translateY(-1.6rem) scale(0.8);
+      color: var(--color-primary);
+      font-weight: 600;
+  }
+}
+
+/* Otomatik doldurma (autofill) renk düzeltmesi */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #e5e2e1;
+  -webkit-box-shadow: 0 0 0px 1000px #201f1f inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+@utility technical-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-inter);
+}
+
+@utility card-hover-trigger {
+  & .hover-actions {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+  &:hover .hover-actions {
+    opacity: 1;
+  }
+}

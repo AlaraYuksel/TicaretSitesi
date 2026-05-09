@@ -1,0 +1,93 @@
+# ─── OS & Genel ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+
+# ─── IDEs & Editörler ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Go (Backend) ─────────────────────────────────────────────────────────────
+# Derlenmiş binary dosyalar
+backend/backend
+backend/server
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test ve profil dosyaları
+*.test
+*.out
+*.prof
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+_testmain.go
+
+# Modül cache
+vendor/
+# Ancak go.work ve go.work.sum dosyalarını genelde ignore ederiz
+go.work
+go.work.sum
+
+# ─── Node.js (Frontend) ───────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build çıktıları
+frontend/dist/
+frontend/build/
+.next/
+out/
+
+# ─── Çevre Değişkenleri (Secrets) ─────────────────────────────────────────────
+# HİÇBİR ZAMAN .env DOSYALARINI GIT'E ATMA!
+.env
+.env.*
+!.env.example
+!.env.template
+
+# ─── Docker & Lokal Veri ──────────────────────────────────────────────────────
+# Lokal veritabanı veya docker volume kalıntıları (eğer projenin içinde tutarsan)
+data/
+db-data/
+postgres_data/
+
+# ─── Terraform ────────────────────────────────────────────────────────────────
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude override files, resolving auto-approved changes
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+docker-compose.yml
+.backend.env
+.frontend.env
