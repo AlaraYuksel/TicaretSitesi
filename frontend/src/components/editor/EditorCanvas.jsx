@@ -1082,6 +1082,113 @@ const ElementContent = memo(({ el, updateProp, selectElement, selectedChildId })
       );
     }
 
+    // ── CART WIDGET ──────────────────────────────────────────────────────────
+    case 'cartWidget':
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? '#22c55e', borderRadius: p.borderRadius ?? 16, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', boxShadow: `${p.shadowX ?? 0}px ${p.shadowY ?? 4}px ${p.shadowBlur ?? 20}px ${p.shadowColor ?? 'rgba(34,197,94,0.4)'}` }}>
+          <span className="material-symbols-outlined" style={{ fontSize: p.iconSize ?? 24, color: p.color ?? '#fff', fontVariationSettings: "'FILL' 1" }}>shopping_cart</span>
+          {p.showItemCount !== false && (
+            <span style={{ position: 'absolute', top: -4, right: -4, background: p.badgeBg ?? '#ef4444', color: p.badgeColor ?? '#fff', fontSize: 10, fontWeight: 800, width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>0</span>
+          )}
+        </div>
+      );
+
+    // ── CHECKOUT FORM ────────────────────────────────────────────────────────
+    case 'checkoutForm': {
+      const stepLabels = p.stepLabels ?? ['Bilgiler', 'Adres', 'Onay'];
+      const fieldStyle = { width: '100%', padding: '11px 14px', background: p.inputBg ?? '#1e1e1e', border: `1px solid ${p.inputBorderColor ?? 'rgba(255,255,255,0.1)'}`, borderRadius: 8, color: p.inputColor ?? '#e5e2e1', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' };
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? '#141414', borderRadius: p.borderRadius ?? 16, padding: 24, boxSizing: 'border-box', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+          {/* Steps */}
+          {p.showSteps !== false && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
+              {stepLabels.map((label, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <div style={{ width: 32, height: 1, background: 'rgba(255,255,255,0.1)' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? (p.accentColor ?? '#22c55e') : '#333', color: i === 0 ? '#fff' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{i + 1}</div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: i === 0 ? (p.subtitleColor ?? '#9ca3af') : '#444' }}>{label}</span>
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+          {/* Form */}
+          <div style={{ background: p.cardBg ?? '#1a1a1a', borderRadius: 12, padding: 18, border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.nameLabel ?? 'Ad Soyad'} <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="text" placeholder={p.namePlaceholder ?? 'Adınız Soyadınız'} readOnly style={fieldStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.emailLabel ?? 'E-posta'} <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="email" placeholder={p.emailPlaceholder ?? 'ornek@email.com'} readOnly style={fieldStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.phoneLabel ?? 'Telefon'} <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="tel" placeholder={p.phonePlaceholder ?? '+90 555 123 45 67'} readOnly style={fieldStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.addressLabel ?? 'Adres'} <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="text" placeholder={p.addressPlaceholder ?? 'Sokak, mahalle, bina no'} readOnly style={fieldStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.cityLabel ?? 'Şehir'}</label>
+                <input type="text" placeholder={p.cityPlaceholder ?? 'İstanbul'} readOnly style={fieldStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: p.labelColor ?? '#888', display: 'block', marginBottom: 5 }}>{p.zipLabel ?? 'Posta Kodu'}</label>
+                <input type="text" placeholder={p.zipPlaceholder ?? '34000'} readOnly style={fieldStyle} />
+              </div>
+            </div>
+          </div>
+          <button style={{ width: '100%', padding: 14, background: p.buttonBg ?? '#22c55e', color: p.buttonColor ?? '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>{p.buttonText ?? 'Siparişi Tamamla'}</button>
+          <div style={{ position: 'absolute', top: 6, right: 12, fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(34,197,94,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>CHECKOUT</div>
+        </div>
+      );
+    }
+
+    // ── MINI CART ─────────────────────────────────────────────────────────────
+    case 'miniCart': {
+      const sampleItems = [
+        { title: 'Kablosuz Kulaklık', price: '599,99', qty: 1 },
+        { title: 'Akıllı Saat', price: '1.299,99', qty: 1 },
+      ];
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? '#1a1a1a', borderRadius: p.borderRadius ?? 16, border: `1px solid ${p.borderColor ?? 'rgba(255,255,255,0.06)'}`, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {/* Header */}
+          <div style={{ padding: '14px 18px', background: p.headerBg ?? '#141414', borderBottom: `1px solid ${p.borderColor ?? 'rgba(255,255,255,0.06)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: p.titleColor ?? '#e5e2e1' }}>{p.titleText ?? 'Sepetim'}</span>
+            <span style={{ fontSize: 11, color: '#666' }}>2 ürün</span>
+          </div>
+          {/* Items */}
+          <div style={{ padding: '0 18px', flex: 1, overflow: 'auto' }}>
+            {sampleItems.map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < sampleItems.length - 1 ? `1px solid ${p.borderColor ?? 'rgba(255,255,255,0.06)'}` : 'none' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1e1e1e', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#444' }}>inventory_2</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: p.itemTitleColor ?? '#e5e2e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                  <div style={{ fontSize: 10, color: p.itemMetaColor ?? '#666', marginTop: 2 }}>Adet: {item.qty}</div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: p.itemPriceColor ?? '#22c55e', flexShrink: 0 }}>{p.currency ?? '₺'}{item.price}</span>
+              </div>
+            ))}
+          </div>
+          {/* Footer */}
+          <div style={{ padding: '14px 18px', borderTop: `1px solid ${p.borderColor ?? 'rgba(255,255,255,0.06)'}`, flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, color: p.totalLabelColor ?? '#9ca3af' }}>Toplam</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: p.totalValueColor ?? '#e5e2e1' }}>{p.currency ?? '₺'}1.899,98</span>
+            </div>
+            <button style={{ width: '100%', padding: 10, background: p.checkoutBg ?? '#22c55e', color: p.checkoutColor ?? '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{p.checkoutText ?? 'Ödemeye Geç'}</button>
+          </div>
+          <div style={{ position: 'absolute', top: 6, right: 12, fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(34,197,94,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MINI CART</div>
+        </div>
+      );
+    }
+
     default:
       return null;
   }
