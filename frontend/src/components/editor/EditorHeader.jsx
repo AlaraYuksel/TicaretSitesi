@@ -433,8 +433,17 @@ function getStorefrontJS() {
     };
 
     window.__goToCheckout = function() {
-      var co = document.getElementById('sf-checkout');
-      if(co) co.scrollIntoView({behavior:'smooth'});
+      var checkoutPage = window.__checkoutPageIdx;
+      if(typeof checkoutPage === 'number' && checkoutPage >= 0 && checkoutPage !== window.__currentPage) {
+        window.__goToPage(checkoutPage);
+        setTimeout(function(){
+          var co = document.getElementById('sf-checkout');
+          if(co) co.scrollIntoView({behavior:'smooth'});
+        }, 300);
+      } else {
+        var co = document.getElementById('sf-checkout');
+        if(co) co.scrollIntoView({behavior:'smooth'});
+      }
     };
 
     window.__submitOrder = function() {
@@ -468,7 +477,13 @@ function generateHTML(pages) {
 
   // Check if site has e-commerce elements
   const allTypes = new Set(pages.flatMap(p => (p.elements||[]).map(e => e.type)));
-  const hasEcommerce = [...ECOMMERCE_PRODUCT_TYPES].some(t => allTypes.has(t)) || allTypes.has('cartWidget') || allTypes.has('cartButton');
+  const hasEcommerce = [...ECOMMERCE_PRODUCT_TYPES].some(t => allTypes.has(t)) || allTypes.has('cartWidget') || allTypes.has('cartButton') || allTypes.has('miniCart');
+
+  // Checkout sayfası indeksini bul (cross-page yönlendirme için)
+  let checkoutPageIdx = -1;
+  pages.forEach((page, pi) => {
+    if ((page.elements || []).some(e => e.type === 'checkoutForm')) checkoutPageIdx = pi;
+  });
 
   const pagesHTML = pages.map((page, pi) => {
     const desktopEls = page.elements.map(el => elementToHTMLWrapped(el, 'desktop', pages)).join('\n      ');
@@ -519,6 +534,7 @@ function generateHTML(pages) {
 ${pagesHTML}
 <script>
   window.__currentPage = 0;
+  window.__checkoutPageIdx = ${checkoutPageIdx};
   window.__goToPage = function(pageIdx) {
     var allPages = document.querySelectorAll('.page');
     if (pageIdx < 0 || pageIdx >= allPages.length) return;
