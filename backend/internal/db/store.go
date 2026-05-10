@@ -358,6 +358,213 @@ func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
 	return &u, nil
 }
 
+// ─── Storefront Tipleri ──────────────────────────────────────────────────────
+
+type GuestOrder struct {
+	ID              string          `json:"id"`
+	SiteID          string          `json:"site_id"`
+	OrderNumber     string          `json:"order_number"`
+	CustomerEmail   string          `json:"customer_email"`
+	CustomerPhone   string          `json:"customer_phone"`
+	CustomerName    string          `json:"customer_name"`
+	Items           json.RawMessage `json:"items"`
+	Subtotal        int64           `json:"subtotal"`
+	ShippingCost    int64           `json:"shipping_cost"`
+	TaxAmount       int64           `json:"tax_amount"`
+	TotalAmount     int64           `json:"total_amount"`
+	ShippingAddress json.RawMessage `json:"shipping_address"`
+	Status          string          `json:"status"`
+	PaymentStatus   string          `json:"payment_status"`
+	TrackingNumber  string          `json:"tracking_number"`
+	TrackingURL     string          `json:"tracking_url"`
+	Carrier         string          `json:"carrier"`
+	PaidAt          *time.Time      `json:"paid_at"`
+	ShippedAt       *time.Time      `json:"shipped_at"`
+	DeliveredAt     *time.Time      `json:"delivered_at"`
+	CancelledAt     *time.Time      `json:"cancelled_at"`
+	Notes           *string         `json:"notes"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+type CreateGuestOrderParams struct {
+	SiteID        string
+	OrderNumber   string
+	CustomerEmail string
+	CustomerPhone string
+	CustomerName  string
+	Items         json.RawMessage
+	Subtotal      int64
+	ShippingCost  int64
+	TaxAmount     int64
+	TotalAmount   int64
+	Address       json.RawMessage
+}
+
+type OTPCode struct {
+	ID          string    `json:"id"`
+	Identifier  string    `json:"identifier"`
+	Code        string    `json:"code"`
+	Purpose     string    `json:"purpose"`
+	Attempts    int       `json:"attempts"`
+	MaxAttempts int       `json:"max_attempts"`
+	Verified    bool      `json:"verified"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type CreateOTPParams struct {
+	Identifier string
+	Code       string
+	Purpose    string
+	ExpiresAt  time.Time
+}
+
+// ─── Storefront Sorguları ────────────────────────────────────────────────────
+
+func (s *Store) CreateGuestOrder(ctx context.Context, p CreateGuestOrderParams) (*GuestOrder, error) {
+	const q = `
+		INSERT INTO guest_orders (
+			site_id, order_number, customer_email, customer_phone, customer_name,
+			items, subtotal, shipping_cost, tax_amount, total_amount,
+			shipping_address, status, payment_status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', 'pending')
+		RETURNING id, site_id, order_number, customer_email, customer_phone, customer_name,
+			items, subtotal, shipping_cost, tax_amount, total_amount,
+			shipping_address, status, payment_status,
+			COALESCE(tracking_number, ''), COALESCE(tracking_url, ''), COALESCE(carrier, ''),
+			paid_at, shipped_at, delivered_at, cancelled_at, notes,
+			created_at, updated_at`
+
+	row := s.pool.QueryRow(ctx, q,
+		p.SiteID, p.OrderNumber, p.CustomerEmail, p.CustomerPhone, p.CustomerName,
+		p.Items, p.Subtotal, p.ShippingCost, p.TaxAmount, p.TotalAmount, p.Address,
+	)
+	return scanGuestOrder(row)
+}
+
+func (s *Store) GetGuestOrderByNumber(ctx context.Context, orderNumber string) (*GuestOrder, error) {
+	const q = `
+		SELECT id, site_id, order_number, customer_email, customer_phone, customer_name,
+			items, subtotal, shipping_cost, tax_amount, total_amount,
+			shipping_address, status, payment_status,
+			COALESCE(tracking_number, ''), COALESCE(tracking_url, ''), COALESCE(carrier, ''),
+			paid_at, shipped_at, delivered_at, cancelled_at, notes,
+			created_at, updated_at
+		FROM guest_orders WHERE order_number = $1`
+
+	row := s.pool.QueryRow(ctx, q, orderNumber)
+	return scanGuestOrder(row)
+}
+
+func (s *Store) ListGuestOrdersByEmailAndPhone(ctx context.Context, email, phone string) ([]GuestOrder, error) {
+	const q = `
+		SELECT id, site_id, order_number, customer_email, customer_phone, customer_name,
+			items, subtotal, shipping_cost, tax_amount, total_amount,
+			shipping_address, status, payment_status,
+			COALESCE(tracking_number, ''), COALESCE(tracking_url, ''), COALESCE(carrier, ''),
+			paid_at, shipped_at, delivered_at, cancelled_at, notes,
+			created_at, updated_at
+		FROM guest_orders
+		WHERE customer_email = $1 AND customer_phone = $2
+		ORDER BY created_at DESC`
+
+	rows, err := s.pool.Query(ctx, q, email, phone)
+	if err != nil {
+		return nil, fmt.Errorf("ListGuestOrdersByEmailAndPhone: %w", err)
+	}
+	defer rows.Close()
+
+	var orders []GuestOrder
+	for rows.Next() {
+		o, err := scanGuestOrder(rows)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, *o)
+	}
+	return orders, rows.Err()
+}
+
+func (s *Store) ListGuestOrdersBySite(ctx context.Context, siteID string, limit, offset int) ([]GuestOrder, error) {
+	const q = `
+		SELECT id, site_id, order_number, customer_email, customer_phone, customer_name,
+			items, subtotal, shipping_cost, tax_amount, total_amount,
+			shipping_address, status, payment_status,
+			COALESCE(tracking_number, ''), COALESCE(tracking_url, ''), COALESCE(carrier, ''),
+			paid_at, shipped_at, delivered_at, cancelled_at, notes,
+			created_at, updated_at
+		FROM guest_orders
+		WHERE site_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3`
+
+	rows, err := s.pool.Query(ctx, q, siteID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("ListGuestOrdersBySite: %w", err)
+	}
+	defer rows.Close()
+
+	var orders []GuestOrder
+	for rows.Next() {
+		o, err := scanGuestOrder(rows)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, *o)
+	}
+	return orders, rows.Err()
+}
+
+// ─── OTP Sorguları ───────────────────────────────────────────────────────────
+
+func (s *Store) CreateOTP(ctx context.Context, p CreateOTPParams) (*OTPCode, error) {
+	const q = `
+		INSERT INTO otp_codes (identifier, code, purpose, expires_at)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, identifier, code, purpose, attempts, max_attempts, verified, expires_at, created_at`
+
+	row := s.pool.QueryRow(ctx, q, p.Identifier, p.Code, p.Purpose, p.ExpiresAt)
+	var otp OTPCode
+	err := row.Scan(
+		&otp.ID, &otp.Identifier, &otp.Code, &otp.Purpose,
+		&otp.Attempts, &otp.MaxAttempts, &otp.Verified,
+		&otp.ExpiresAt, &otp.CreatedAt,
+	)
+	return &otp, err
+}
+
+func (s *Store) GetActiveOTP(ctx context.Context, identifier, purpose string) (*OTPCode, error) {
+	const q = `
+		SELECT id, identifier, code, purpose, attempts, max_attempts, verified, expires_at, created_at
+		FROM otp_codes
+		WHERE identifier = $1 AND purpose = $2
+		  AND verified = FALSE AND attempts < max_attempts
+		  AND expires_at > NOW()
+		ORDER BY created_at DESC
+		LIMIT 1`
+
+	row := s.pool.QueryRow(ctx, q, identifier, purpose)
+	var otp OTPCode
+	err := row.Scan(
+		&otp.ID, &otp.Identifier, &otp.Code, &otp.Purpose,
+		&otp.Attempts, &otp.MaxAttempts, &otp.Verified,
+		&otp.ExpiresAt, &otp.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetActiveOTP: %w", err)
+	}
+	return &otp, nil
+}
+
+func (s *Store) IncrementOTPAttempts(ctx context.Context, id string) {
+	s.pool.Exec(ctx, `UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1`, id)
+}
+
+func (s *Store) VerifyOTP(ctx context.Context, id string) {
+	s.pool.Exec(ctx, `UPDATE otp_codes SET verified = TRUE WHERE id = $1`, id)
+}
+
 // ─── Yardımcı Fonksiyonlar ───────────────────────────────────────────────────
 
 // scanSite hem pgx.Row hem pgx.Rows'u okuyabilmek için pgx.Row interface'i kullanır.
@@ -374,4 +581,20 @@ func scanSite(row pgx.Row) (*Site, error) {
 		return nil, fmt.Errorf("scanSite: %w", err)
 	}
 	return &site, nil
+}
+
+func scanGuestOrder(row pgx.Row) (*GuestOrder, error) {
+	var o GuestOrder
+	err := row.Scan(
+		&o.ID, &o.SiteID, &o.OrderNumber, &o.CustomerEmail, &o.CustomerPhone, &o.CustomerName,
+		&o.Items, &o.Subtotal, &o.ShippingCost, &o.TaxAmount, &o.TotalAmount,
+		&o.ShippingAddress, &o.Status, &o.PaymentStatus,
+		&o.TrackingNumber, &o.TrackingURL, &o.Carrier,
+		&o.PaidAt, &o.ShippedAt, &o.DeliveredAt, &o.CancelledAt, &o.Notes,
+		&o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scanGuestOrder: %w", err)
+	}
+	return &o, nil
 }

@@ -7,6 +7,7 @@ import { isAuthenticated } from './lib/api';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
+import OrderTracker from './pages/OrderTracker';
 
 // ─── Route Guard: Giriş yapmamış kullanıcıyı Auth'a yönlendir ───────────────
 function ProtectedRoute({ children }) {
@@ -55,6 +56,9 @@ function App() {
         <Route path="/" element={
           <AuthRoute><Auth /></AuthRoute>
         } />
+        
+        {/* Sipariş takip sayfası — auth gerektirmez, website builder'dan bağımsız */}
+        <Route path="/track" element={<OrderTracker />} />
         
         {/* Dashboard sayfası — auth gerekli */}
         <Route path="/dashboard" element={

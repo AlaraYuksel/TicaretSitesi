@@ -12,7 +12,7 @@ export const BREAKPOINTS = {
 export const BREAKPOINT_ORDER = ['desktop', 'tablet', 'mobile'];
 
 // Media element types that should scale height proportionally with width
-const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll', 'productCard', 'productGrid', 'storeHeader']);
+const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll', 'productCard', 'productGrid', 'storeHeader', 'checkoutForm', 'miniCart']);
 
 export function getElementBounds(el, breakpoint = 'desktop') {
   if (el.breakpoints) {
@@ -331,6 +331,45 @@ export function defaultProps(type) {
       activeCategoryColor: '#4b8eff',
       borderRadius: 0, padding: 40,
     },
+    cartWidget: {
+      bg: '#22c55e', color: '#ffffff', iconSize: 24,
+      badgeBg: '#ef4444', badgeColor: '#fff',
+      borderRadius: 16, size: 56,
+      position: 'bottom-right', // bottom-right | bottom-left | top-right | top-left
+      shadowX: 0, shadowY: 4, shadowBlur: 20, shadowColor: 'rgba(34,197,94,0.4)',
+      showItemCount: true, showTotal: true,
+      labelText: 'Sepet', totalPrefix: '₺',
+    },
+    checkoutForm: {
+      // Adım 1: Kişisel Bilgiler
+      emailLabel: 'E-posta Adresi', emailPlaceholder: 'ornek@email.com',
+      phoneLabel: 'Telefon Numarası', phonePlaceholder: '+90 555 123 45 67',
+      nameLabel: 'Ad Soyad', namePlaceholder: 'Adınız Soyadınız',
+      // Adım 2: Adres
+      addressLabel: 'Adres', addressPlaceholder: 'Sokak, mahalle, bina no',
+      cityLabel: 'Şehir', cityPlaceholder: 'İstanbul',
+      zipLabel: 'Posta Kodu', zipPlaceholder: '34000',
+      // Stil
+      bg: '#141414', cardBg: '#1a1a1a', borderRadius: 16,
+      inputBg: '#1e1e1e', inputBorderColor: 'rgba(255,255,255,0.1)', inputColor: '#e5e2e1',
+      labelColor: '#888', titleColor: '#e5e2e1', subtitleColor: '#9ca3af',
+      accentColor: '#22c55e', buttonBg: '#22c55e', buttonColor: '#fff',
+      buttonText: 'Siparişi Tamamla',
+      showOrderSummary: true, showSteps: true,
+      stepLabels: ['Bilgiler', 'Adres', 'Onay'],
+    },
+    miniCart: {
+      bg: '#1a1a1a', headerBg: '#141414',
+      titleText: 'Sepetim', titleColor: '#e5e2e1',
+      itemTitleColor: '#e5e2e1', itemPriceColor: '#22c55e', itemMetaColor: '#666',
+      totalLabelColor: '#9ca3af', totalValueColor: '#e5e2e1',
+      borderColor: 'rgba(255,255,255,0.06)',
+      checkoutBg: '#22c55e', checkoutColor: '#fff', checkoutText: 'Ödemeye Geç',
+      emptyText: 'Sepetiniz boş', emptyIcon: 'shopping_cart',
+      borderRadius: 16, width: 380,
+      showQuantityControls: true, showRemoveButton: true,
+      currency: '₺',
+    },
   };
   return map[type] ?? {};
 }
@@ -372,6 +411,9 @@ export function defaultDimensions(type) {
     cartButton: { width: 200, height: 52 },
     priceTag: { width: 280, height: 80 },
     storeHeader: { width: 1440, height: 280 },
+    cartWidget: { width: 64, height: 64 },
+    checkoutForm: { width: 560, height: 640 },
+    miniCart: { width: 380, height: 520 },
   };
   return map[type] ?? { width: 160, height: 80 };
 }
@@ -393,6 +435,8 @@ export function defaultElementName(type, count) {
     productCard: 'Ürün Kartı', productGrid: 'Ürün Grid',
     cartButton: 'Sepet Butonu', priceTag: 'Fiyat Etiketi',
     storeHeader: 'Mağaza Header',
+    cartWidget: 'Sepet Widget', checkoutForm: 'Ödeme Formu',
+    miniCart: 'Mini Sepet',
   };
   return `${names[type] ?? type} ${count}`;
 }
@@ -402,7 +446,7 @@ export function isContainerType(type) {
 }
 
 export function isBlockType(type) {
-  return ['navbar', 'sidebar', 'hero', 'card', 'form', 'accordion', 'tabs', 'testimonial', 'productCard', 'productGrid', 'storeHeader'].includes(type);
+  return ['navbar', 'sidebar', 'hero', 'card', 'form', 'accordion', 'tabs', 'testimonial', 'productCard', 'productGrid', 'storeHeader', 'checkoutForm', 'miniCart'].includes(type);
 }
 
 // ─── SNAP ENGINE ─────────────────────────────────────────────────────────────

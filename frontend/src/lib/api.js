@@ -120,3 +120,45 @@ export async function apiDeleteSite(id) {
     method: 'DELETE',
   });
 }
+
+// ─── Storefront API (Auth gerektirmez — ziyaretçi tarafı) ────────────────────
+
+export async function apiStorefrontCreateOrder(orderData) {
+  const res = await fetch(`${API_BASE}/storefront/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderData),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiStorefrontRequestOTP(email, phone) {
+  const res = await fetch(`${API_BASE}/storefront/orders/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, phone }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiStorefrontVerifyOTP(email, phone, code) {
+  const res = await fetch(`${API_BASE}/storefront/orders/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, phone, code }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+

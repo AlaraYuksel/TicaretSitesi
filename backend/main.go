@@ -50,6 +50,7 @@ func main() {
 	orderHandler := handler.NewOrderHandler(store)
 	sellerHandler := handler.NewSellerHandler(store)
 	webhookHandler := handler.NewWebhookHandler(store, "", "") // TODO: env'den stripe/easypost secret al
+	storefrontHandler := handler.NewStorefrontHandler(store)
 
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
 	// 🔄 COGNITO_SWITCH: Lokal JWT auth.
@@ -101,6 +102,13 @@ func main() {
 	// ── 🔗 Webhooks (auth yok — dış servislerden gelir, HMAC ile doğrulanır) ─
 	mux.HandleFunc("POST /api/webhooks/easypost", webhookHandler.EasyPost)
 	mux.HandleFunc("POST /api/webhooks/stripe", webhookHandler.Stripe)
+
+	// ── 🛍️ Storefront API (auth yok — ziyaretçiler için) ─────────────────────
+	mux.HandleFunc("POST /api/storefront/orders", storefrontHandler.CreateOrder)
+	mux.HandleFunc("POST /api/storefront/orders/track", storefrontHandler.RequestOTP)
+	mux.HandleFunc("POST /api/storefront/orders/verify", storefrontHandler.VerifyOTP)
+	mux.HandleFunc("GET /api/storefront/orders/detail/{orderNumber}", storefrontHandler.GetOrderByNumber)
+	mux.HandleFunc("GET /api/storefront/sites/{siteId}/products", storefrontHandler.ListProducts)
 
 	// ── Domain Serving ───────────────────────────────────────────────────────
 	// Tüm diğer istekler → Host header'dan subdomain/custom domain bul → site serve et

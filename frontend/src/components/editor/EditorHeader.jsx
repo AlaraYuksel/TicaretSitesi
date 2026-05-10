@@ -237,6 +237,23 @@ function elementToHTML(el, bp = 'desktop', pages = []) {
       </div>`;
     }
 
+    // ── 🛒 E-Ticaret Elementleri ─────────────────────────────────────────────
+    case 'cartWidget': {
+      return `<div style="${css({ ...base, display:'flex','align-items':'center','justify-content':'center',background:p.bg??'#22c55e','border-radius':`${p.borderRadius??16}px`,cursor:'pointer','box-shadow':`${p.shadowX??0}px ${p.shadowY??4}px ${p.shadowBlur??20}px ${p.shadowColor??'rgba(34,197,94,0.4)'}` })}" onclick="window.__toggleCart&&window.__toggleCart()"><span class="material-symbols-outlined" style="font-size:${p.iconSize??24}px;color:${p.color??'#fff'};font-variation-settings:'FILL' 1;">shopping_cart</span><span id="cart-badge" style="position:absolute;top:-4px;right:-4px;background:${p.badgeBg??'#ef4444'};color:${p.badgeColor??'#fff'};font-size:10px;font-weight:800;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;">0</span></div>`;
+    }
+
+    case 'checkoutForm': {
+      const step = (n,l) => `<div style="display:flex;align-items:center;gap:8px;"><div style="width:28px;height:28px;border-radius:50%;background:${p.accentColor??'#22c55e'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">${n}</div><span style="font-size:12px;color:${p.subtitleColor??'#9ca3af'};font-weight:600;">${l}</span></div>`;
+      const steps = (p.stepLabels??['Bilgiler','Adres','Onay']).map((l,i) => step(i+1,l)).join('<div style="width:40px;height:1px;background:rgba(255,255,255,0.1);"></div>');
+      const field = (lbl,ph,type='text') => `<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:${p.labelColor??'#888'};display:block;margin-bottom:6px;">${lbl} <span style="color:#ef4444;">*</span></label><input type="${type}" placeholder="${ph}" style="width:100%;padding:11px 14px;background:${p.inputBg??'#1e1e1e'};border:1px solid ${p.inputBorderColor??'rgba(255,255,255,0.1)'};border-radius:8px;color:${p.inputColor??'#e5e2e1'};font-size:13px;outline:none;font-family:inherit;box-sizing:border-box;" /></div>`;
+      return `<div style="${css({ ...base, background:p.bg??'#141414','border-radius':`${p.borderRadius??16}px`,padding:'28px','box-sizing':'border-box',overflow:'auto' })}"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;">${steps}</div><div style="background:${p.cardBg??'#1a1a1a'};border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.06);">${field(p.nameLabel??'Ad Soyad',p.namePlaceholder??'Adınız Soyadınız')}${field(p.emailLabel??'E-posta',p.emailPlaceholder??'ornek@email.com','email')}${field(p.phoneLabel??'Telefon',p.phonePlaceholder??'+90 555 123 45 67','tel')}${field(p.addressLabel??'Adres',p.addressPlaceholder??'Sokak, mahalle, bina no')}<div style="display:flex;gap:12px;">${field(p.cityLabel??'Şehir',p.cityPlaceholder??'İstanbul')}${field(p.zipLabel??'Posta Kodu',p.zipPlaceholder??'34000')}</div></div><button style="width:100%;margin-top:16px;padding:14px;background:${p.buttonBg??'#22c55e'};color:${p.buttonColor??'#fff'};border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">${p.buttonText??'Siparişi Tamamla'}</button></div>`;
+    }
+
+    case 'miniCart': {
+      const item = (t,pr) => `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${p.borderColor??'rgba(255,255,255,0.06)'};"><div style="width:48px;height:48px;border-radius:8px;background:#1e1e1e;flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:${p.itemTitleColor??'#e5e2e1'};">${t}</div><div style="font-size:11px;color:${p.itemMetaColor??'#666'};margin-top:2px;">Adet: 1</div></div><div style="font-size:14px;font-weight:700;color:${p.itemPriceColor??'#22c55e'};">${p.currency??'₺'}${pr}</div></div>`;
+      return `<div style="${css({ ...base, background:p.bg??'#1a1a1a','border-radius':`${p.borderRadius??16}px`,border:`1px solid ${p.borderColor??'rgba(255,255,255,0.06)'}`,overflow:'hidden',display:'flex','flex-direction':'column' })}"><div style="padding:16px 20px;background:${p.headerBg??'#141414'};border-bottom:1px solid ${p.borderColor??'rgba(255,255,255,0.06)'};display:flex;align-items:center;justify-content:space-between;"><span style="font-size:15px;font-weight:700;color:${p.titleColor??'#e5e2e1'};">${p.titleText??'Sepetim'}</span><span style="font-size:11px;color:#666;">2 ürün</span></div><div style="padding:0 20px;flex:1;overflow:auto;">${item('Kablosuz Kulaklık','599,99')}${item('Akıllı Saat','1.299,99')}</div><div style="padding:16px 20px;border-top:1px solid ${p.borderColor??'rgba(255,255,255,0.06)'};"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="font-size:13px;color:${p.totalLabelColor??'#9ca3af'};">Toplam</span><span style="font-size:18px;font-weight:800;color:${p.totalValueColor??'#e5e2e1'};">${p.currency??'₺'}1.899,98</span></div><button style="width:100%;padding:12px;background:${p.checkoutBg??'#22c55e'};color:${p.checkoutColor??'#fff'};border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">${p.checkoutText??'Ödemeye Geç'}</button></div></div>`;
+    }
+
     default: {
       const fallback = `<div style="${css({ ...base, background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.06)', 'border-radius': '8px' })}"></div>`;
       return wrapWithLinkAction(fallback, el, pages);
@@ -247,10 +264,80 @@ function elementToHTML(el, bp = 'desktop', pages = []) {
 // Helper: wrap non-navbar/sidebar elements that have simple HTML output
 function elementToHTMLWrapped(el, bp, pages) {
   const html = elementToHTML(el, bp, pages);
-  // navbar and sidebar already handle wrapping internally
   if (['navbar', 'sidebar'].includes(el.type)) return html;
   if (!el.linkAction || el.linkAction.type === 'none' || !el.linkAction.target) return html;
   return wrapWithLinkAction(html, el, pages);
+}
+
+// ─── E-TİCARET ZORUNLU TOOL KONTROLÜ ─────────────────────────────────────────
+const ECOMMERCE_PRODUCT_TYPES = new Set(['productCard', 'productGrid', 'storeHeader']);
+const ECOMMERCE_REQUIRED_TYPES = new Set(['checkoutForm', 'cartWidget']);
+
+function checkEcommerceRequirements(pages) {
+  const allElements = pages.flatMap(p => p.elements || []);
+  const types = new Set(allElements.map(e => e.type));
+
+  const hasProducts = [...ECOMMERCE_PRODUCT_TYPES].some(t => types.has(t));
+  if (!hasProducts) return { valid: true, missing: [] };
+
+  const missing = [];
+  if (!types.has('checkoutForm')) missing.push('Ödeme Formu (checkoutForm)');
+  if (!types.has('cartWidget')) missing.push('Sepet Widget (cartWidget)');
+
+  return { valid: missing.length === 0, missing };
+}
+
+// ─── STOREFRONT CART JS ───────────────────────────────────────────────────────
+function getStorefrontJS() {
+  return `
+  // ═══ STOREFRONT CART SYSTEM ═══
+  (function(){
+    var CART_KEY = 'sf_cart';
+    var cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+
+    function saveCart() { localStorage.setItem(CART_KEY, JSON.stringify(cart)); updateUI(); }
+
+    function updateUI() {
+      var badge = document.getElementById('cart-badge');
+      if (badge) badge.textContent = cart.reduce(function(s,i){ return s+i.qty; }, 0);
+      // Update mini cart if exists
+      var ev = new CustomEvent('cart-updated', { detail: { cart: cart, total: getTotal() } });
+      document.dispatchEvent(ev);
+    }
+
+    function getTotal() {
+      return cart.reduce(function(s,i){ return s + (i.price * i.qty); }, 0);
+    }
+
+    window.__cart = {
+      add: function(product) {
+        var existing = cart.find(function(i){ return i.id === product.id; });
+        if (existing) { existing.qty += (product.qty || 1); }
+        else { cart.push({ id: product.id, title: product.title, price: product.price, qty: product.qty || 1, image: product.image || '' }); }
+        saveCart();
+      },
+      remove: function(productId) {
+        cart = cart.filter(function(i){ return i.id !== productId; });
+        saveCart();
+      },
+      updateQty: function(productId, qty) {
+        var item = cart.find(function(i){ return i.id === productId; });
+        if (item) { item.qty = Math.max(1, qty); saveCart(); }
+      },
+      clear: function() { cart = []; saveCart(); },
+      get: function() { return cart; },
+      getTotal: getTotal,
+      count: function() { return cart.reduce(function(s,i){ return s+i.qty; }, 0); }
+    };
+
+    window.__toggleCart = function() {
+      var panel = document.getElementById('sf-cart-panel');
+      if (panel) panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    };
+
+    // Initial UI update
+    setTimeout(updateUI, 100);
+  })();`;
 }
 
 // ─── FULL HTML DOCUMENT ───────────────────────────────────────────────────────
@@ -258,13 +345,11 @@ function generateHTML(pages) {
   const fonts = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fira+Code&display=swap";
   const icons = "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200";
 
-  const pagesHTML = pages.map((page, pi) => {
-    const w = BREAKPOINTS.desktop.width;
-    const h = Math.max(...(page.elements.map(el => {
-      const b = getElementBounds(el, 'desktop');
-      return b.y + b.height;
-    })), 900);
+  // Check if site has e-commerce elements
+  const allTypes = new Set(pages.flatMap(p => (p.elements||[]).map(e => e.type)));
+  const hasEcommerce = [...ECOMMERCE_PRODUCT_TYPES].some(t => allTypes.has(t)) || allTypes.has('cartWidget') || allTypes.has('cartButton');
 
+  const pagesHTML = pages.map((page, pi) => {
     const desktopEls = page.elements.map(el => elementToHTMLWrapped(el, 'desktop', pages)).join('\n      ');
     const tabletEls = page.elements.map(el => elementToHTMLWrapped(el, 'tablet', pages)).join('\n      ');
     const mobileEls = page.elements.map(el => elementToHTMLWrapped(el, 'mobile', pages)).join('\n      ');
@@ -296,7 +381,6 @@ function generateHTML(pages) {
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0e0e0e; font-family: 'Inter', sans-serif; color: #e5e2e1; }
     .canvas { position: relative; margin: 0 auto; }
-    /* Desktop */
     .desktop-canvas { width: ${BREAKPOINTS.desktop.width}px; min-height: ${BREAKPOINTS.desktop.width * 0.6}px; }
     .tablet-canvas  { display: none; width: ${BREAKPOINTS.tablet.width}px; min-height: ${BREAKPOINTS.tablet.width}px; }
     .mobile-canvas  { display: none; width: ${BREAKPOINTS.mobile.width}px; min-height: ${BREAKPOINTS.mobile.width * 1.5}px; }
@@ -313,7 +397,6 @@ function generateHTML(pages) {
 <body>
 ${pagesHTML}
 <script>
-  // Page navigation system
   window.__currentPage = 0;
   window.__goToPage = function(pageIdx) {
     var allPages = document.querySelectorAll('.page');
@@ -324,6 +407,7 @@ ${pagesHTML}
     window.__currentPage = pageIdx;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  ${hasEcommerce ? getStorefrontJS() : ''}
 </script>
 </body>
 </html>`;
@@ -333,8 +417,9 @@ ${pagesHTML}
 export default function EditorHeader({ siteId, siteTitle }) {
   const navigate = useNavigate();
   const [showExport, setShowExport] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
-  const [publishStatus, setPublishStatus] = useState('idle'); // idle | publishing | published | error
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [publishStatus, setPublishStatus] = useState('idle');
+  const [ecomWarning, setEcomWarning] = useState(null); // { missing: [...] }
   const {
     undo, redo, getActivePage, pages, canvasHeights,
     activeBreakpoint, setBreakpoint,
@@ -364,7 +449,12 @@ export default function EditorHeader({ siteId, siteTitle }) {
   // ── Publish → Backend ────────────────────────────────────────────────────
   const handlePublish = async () => {
     if (!siteId) return;
-    // Önce kaydet, sonra yayınla
+    // E-ticaret zorunlu tool kontrolü
+    const check = checkEcommerceRequirements(pages);
+    if (!check.valid) {
+      setEcomWarning({ missing: check.missing });
+      return;
+    }
     setSaveStatus('saving');
     try {
       const { apiSaveSiteData, apiPublishSite } = await import('../../lib/api');
@@ -398,6 +488,12 @@ export default function EditorHeader({ siteId, siteTitle }) {
   }, [siteId, pages, canvasHeights]);
 
   const handlePreview = () => {
+    // E-ticaret zorunlu tool kontrolü
+    const check = checkEcommerceRequirements(pages);
+    if (!check.valid) {
+      setEcomWarning({ missing: check.missing });
+      return;
+    }
     const html = generateHTML(pages ?? [activePage]);
     window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
   };
@@ -432,6 +528,7 @@ export default function EditorHeader({ siteId, siteTitle }) {
   }[publishStatus];
 
   return (
+    <>
     <header style={{ position: 'fixed', top: 0, width: '100%', zIndex: 50, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#0e0e0e', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       {/* Left */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -525,5 +622,39 @@ export default function EditorHeader({ siteId, siteTitle }) {
         />
       </div>
     </header>
+
+    {/* ── E-Ticaret Zorunlu Tool Uyarı Modalı ────────────────────────────── */}
+    {ecomWarning && (
+      <div style={{ position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center' }} onClick={() => setEcomWarning(null)}>
+        <div style={{ background:'#1a1a1a',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:32,maxWidth:440,width:'90%',boxShadow:'0 24px 64px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:20 }}>
+            <div style={{ width:44,height:44,borderRadius:12,background:'rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize:24,color:'#ef4444' }}>warning</span>
+            </div>
+            <div>
+              <h3 style={{ fontSize:16,fontWeight:800,color:'#e5e2e1',margin:0 }}>Eksik E-Ticaret Araçları</h3>
+              <p style={{ fontSize:12,color:'#666',margin:0,marginTop:2 }}>Preview / Publish için aşağıdaki araçlar gerekli</p>
+            </div>
+          </div>
+          <div style={{ background:'#141414',borderRadius:12,padding:16,marginBottom:20,border:'1px solid rgba(255,255,255,0.06)' }}>
+            {ecomWarning.missing.map((m, i) => (
+              <div key={i} style={{ display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom: i < ecomWarning.missing.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <span className="material-symbols-outlined" style={{ fontSize:16,color:'#ef4444' }}>cancel</span>
+                <span style={{ fontSize:13,color:'#e5e2e1',fontWeight:600 }}>{m}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize:11,color:'#666',marginBottom:16,lineHeight:1.6 }}>
+            E-ticaret ürün elementleri (Ürün Kartı, Ürün Grid, Mağaza Header) kullanıyorsanız,
+            ziyaretçilerin alışveriş yapabilmesi için <strong style={{ color:'#22c55e' }}>Sepet Widget</strong> ve <strong style={{ color:'#22c55e' }}>Ödeme Formu</strong> eklemeniz zorunludur.
+          </p>
+          <div style={{ display:'flex',gap:8 }}>
+            <button onClick={() => setEcomWarning(null)} style={{ flex:1,padding:'11px',background:'#222',color:'#888',border:'1px solid rgba(255,255,255,0.08)',borderRadius:10,fontSize:12,fontWeight:600,cursor:'pointer' }}>Kapat</button>
+            <button onClick={() => { setEcomWarning(null); /* Element panelini aç */ }} style={{ flex:1,padding:'11px',background:'#22c55e',color:'#fff',border:'none',borderRadius:10,fontSize:12,fontWeight:700,cursor:'pointer' }}>Elementleri Ekle</button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

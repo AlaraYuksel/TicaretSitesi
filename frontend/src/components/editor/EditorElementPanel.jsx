@@ -88,6 +88,9 @@ const ELEMENT_GROUPS = [
       { type: 'cartButton',   icon: 'shopping_cart',   label: 'Sepet Butonu',   desc: 'Sepete ekle CTA' },
       { type: 'priceTag',     icon: 'sell',            label: 'Fiyat Etiketi',  desc: 'İndirim + eski fiyat' },
       { type: 'storeHeader',  icon: 'storefront',      label: 'Mağaza Header',  badge: 'NEW', desc: 'Logo + arama + kategoriler' },
+      { type: 'cartWidget',   icon: 'shopping_bag',    label: 'Sepet Widget',   badge: 'ZRN', desc: 'Floating sepet ikonu' },
+      { type: 'checkoutForm', icon: 'receipt_long',    label: 'Ödeme Formu',    badge: 'ZRN', desc: 'E-posta + tel + adres' },
+      { type: 'miniCart',     icon: 'shopping_basket', label: 'Mini Sepet',     badge: 'ZRN', desc: 'Sepet içerik paneli' },
     ],
   },
 ];
