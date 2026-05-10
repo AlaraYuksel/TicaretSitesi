@@ -79,6 +79,17 @@ const ELEMENT_GROUPS = [
       { type: 'horizontalScroll',icon: 'swipe_right',   label: 'H-Scroll',badge: 'NEW',  desc: 'Yatay kaydırma şeridi' },
     ],
   },
+  {
+    label: '🛒 E-Ticaret',
+    color: '#22c55e',
+    items: [
+      { type: 'productCard',  icon: 'inventory_2',     label: 'Ürün Kartı',     badge: 'NEW', desc: 'Fiyat + sepet + yıldız' },
+      { type: 'productGrid',  icon: 'grid_view',       label: 'Ürün Grid',      badge: 'NEW', desc: 'Çoklu ürün vitrin' },
+      { type: 'cartButton',   icon: 'shopping_cart',   label: 'Sepet Butonu',   desc: 'Sepete ekle CTA' },
+      { type: 'priceTag',     icon: 'sell',            label: 'Fiyat Etiketi',  desc: 'İndirim + eski fiyat' },
+      { type: 'storeHeader',  icon: 'storefront',      label: 'Mağaza Header',  badge: 'NEW', desc: 'Logo + arama + kategoriler' },
+    ],
+  },
 ];
 
 // ─── TEMPLATES ────────────────────────────────────────────────────────────────
@@ -188,6 +199,29 @@ const TEMPLATES = [
         breakpoints: { desktop: { x: 60, y: 80, width: 1320, height: 280 }, tablet: null, mobile: null },
       },
     ],
+  },
+  {
+    label: 'E-Commerce Store',
+    icon: 'storefront',
+    desc: 'Mağaza header + ürün grid',
+    build: () => {
+      const storeDims = defaultDimensions('storeHeader');
+      const gridDims = defaultDimensions('productGrid');
+      return [
+        { id: genId(), type: 'storeHeader', name: 'Mağaza Header', visible: true, locked: false,
+          props: defaultProps('storeHeader'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 0, y: 0, width: storeDims.width, height: storeDims.height }, tablet: null, mobile: null },
+        },
+        { id: genId(), type: 'productGrid', name: 'Ürün Vitrini', visible: true, locked: false,
+          props: defaultProps('productGrid'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 120, y: storeDims.height + 40, width: gridDims.width, height: gridDims.height }, tablet: null, mobile: null },
+        },
+      ];
+    },
   },
 ];
 

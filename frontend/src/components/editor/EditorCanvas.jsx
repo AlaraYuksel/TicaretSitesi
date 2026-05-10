@@ -909,6 +909,179 @@ const ElementContent = memo(({ el, updateProp, selectElement, selectedChildId })
     case 'horizontalScroll':
       return <HorizontalScrollEl p={p} />;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🛒 E-TİCARET ELEMENTLERİ
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── PRODUCT CARD ─────────────────────────────────────────────────────────
+    case 'productCard': {
+      const stars = Math.floor(p.rating ?? 4.5);
+      const halfStar = (p.rating ?? 4.5) % 1 >= 0.5;
+      const discount = p.showComparePrice && p.comparePrice > p.price
+        ? Math.round((1 - p.price / p.comparePrice) * 100)
+        : 0;
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? '#1a1a1a', borderRadius: p.borderRadius ?? 16, border: `1px solid ${p.borderColor ?? 'rgba(255,255,255,0.06)'}`, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {/* Badge */}
+          {p.showBadge && p.badge && (
+            <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, background: p.badgeBg ?? '#ef4444', color: p.badgeColor ?? '#fff', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 6, letterSpacing: 1 }}>{p.badge}</div>
+          )}
+          {/* Image */}
+          <div style={{ height: 200, background: '#111', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
+            {p.imageSrc
+              ? <img src={p.imageSrc} alt={p.imageAlt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#333' }}>inventory_2</span>
+                </div>}
+          </div>
+          {/* Content */}
+          <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: p.titleColor ?? '#e5e2e1', lineHeight: 1.3 }}>{p.title ?? 'Ürün Adı'}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: p.descColor ?? '#9ca3af', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.description}</p>
+            {/* Rating */}
+            {p.showRating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 1 }}>
+                  {Array.from({ length: stars }).map((_, i) => <span key={i} style={{ color: '#f59e0b', fontSize: 14 }}>★</span>)}
+                  {halfStar && <span style={{ color: '#f59e0b', fontSize: 14, opacity: 0.5 }}>★</span>}
+                </div>
+                <span style={{ fontSize: 11, color: '#666' }}>({p.reviewCount ?? 0})</span>
+              </div>
+            )}
+            {/* Price */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
+              <span style={{ fontSize: 22, fontWeight: 900, color: p.priceColor ?? '#22c55e' }}>{p.currency ?? '₺'}{(p.price ?? 0).toFixed(2)}</span>
+              {p.showComparePrice && p.comparePrice > 0 && (
+                <span style={{ fontSize: 14, color: p.oldPriceColor ?? '#555', textDecoration: 'line-through' }}>{p.currency ?? '₺'}{(p.comparePrice).toFixed(2)}</span>
+              )}
+              {discount > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 800, background: '#ef4444', color: '#fff', padding: '2px 7px', borderRadius: 4 }}>-%{discount}</span>
+              )}
+            </div>
+            {/* CTA */}
+            <button style={{ width: '100%', padding: '10px', background: p.ctaBg ?? '#22c55e', color: p.ctaColor ?? '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>shopping_cart</span>
+              {p.ctaText ?? 'Sepete Ekle'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── PRODUCT GRID ─────────────────────────────────────────────────────────
+    case 'productGrid': {
+      const products = p.products ?? [];
+      const cols = p.columns ?? 3;
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? '#0e0e0e', borderRadius: p.borderRadius ?? 16, padding: p.padding ?? 24, boxSizing: 'border-box', overflow: 'auto' }}>
+          {p.sectionTitle && (
+            <h2 style={{ margin: '0 0 20px', fontSize: p.sectionTitleSize ?? 28, fontWeight: 800, color: p.sectionTitleColor ?? '#e5e2e1' }}>{p.sectionTitle}</h2>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: p.gap ?? 20 }}>
+            {products.map(prod => (
+              <div key={prod.id} style={{ background: p.cardBg ?? '#1a1a1a', border: `1px solid ${p.cardBorderColor ?? 'rgba(255,255,255,0.06)'}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ height: 140, background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  {prod.image
+                    ? <img src={prod.image} alt={prod.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span className="material-symbols-outlined" style={{ fontSize: 36, color: '#333' }}>inventory_2</span>}
+                  {prod.badge && (
+                    <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 8, fontWeight: 800, background: p.badgeBg ?? '#4b8eff', color: p.badgeColor ?? '#fff', padding: '2px 8px', borderRadius: 4, letterSpacing: 0.5 }}>{prod.badge}</span>
+                  )}
+                </div>
+                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: p.titleColor ?? '#e5e2e1', lineHeight: 1.3 }}>{prod.title}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {Array.from({ length: Math.floor(prod.rating ?? 4) }).map((_, i) => <span key={i} style={{ color: '#f59e0b', fontSize: 11 }}>★</span>)}
+                    <span style={{ fontSize: 10, color: '#666', marginLeft: 2 }}>{prod.rating}</span>
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: p.priceColor ?? '#22c55e', marginTop: 'auto' }}>₺{(prod.price ?? 0).toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ position: 'absolute', top: 6, right: 12, fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(34,197,94,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>PRODUCT GRID · {products.length} items</div>
+        </div>
+      );
+    }
+
+    // ── CART BUTTON ───────────────────────────────────────────────────────────
+    case 'cartButton':
+      return (
+        <button style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#22c55e', color: p.color ?? '#fff',
+          fontSize: p.fontSize ?? 15, fontWeight: p.fontWeight ?? '700',
+          border: 'none', borderRadius: p.borderRadius ?? 10, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: `${p.shadowX ?? 0}px ${p.shadowY ?? 4}px ${p.shadowBlur ?? 20}px ${p.shadowColor ?? 'rgba(34,197,94,0.3)'}`,
+          boxSizing: 'border-box', whiteSpace: 'nowrap',
+          position: 'relative',
+        }}>
+          {p.text ?? '🛒 Sepete Ekle'}
+          {p.showItemCount && p.itemCount > 0 && (
+            <span style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.itemCount}</span>
+          )}
+        </button>
+      );
+
+    // ── PRICE TAG ────────────────────────────────────────────────────────────
+    case 'priceTag': {
+      const disc = p.showDiscount && p.comparePrice > p.price
+        ? Math.round((1 - p.price / p.comparePrice) * 100)
+        : 0;
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: p.align === 'center' ? 'center' : 'flex-end', justifyContent: p.align === 'center' ? 'center' : 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: p.priceFontSize ?? 32, fontWeight: p.fontWeight ?? '800', color: p.priceColor ?? '#22c55e', lineHeight: 1 }}>
+            {p.currency ?? '₺'}{(p.price ?? 299.99).toFixed(2)}
+          </span>
+          {p.comparePrice > 0 && (
+            <span style={{ fontSize: p.comparePriceFontSize ?? 18, color: p.comparePriceColor ?? '#666', textDecoration: 'line-through', lineHeight: 1 }}>
+              {p.currency ?? '₺'}{(p.comparePrice ?? 399.99).toFixed(2)}
+            </span>
+          )}
+          {disc > 0 && (
+            <span style={{ fontSize: 12, fontWeight: 800, background: p.discountBg ?? '#ef4444', color: p.discountColor ?? '#fff', padding: '3px 10px', borderRadius: 6 }}>-%{disc}</span>
+          )}
+        </div>
+      );
+    }
+
+    // ── STORE HEADER ─────────────────────────────────────────────────────────
+    case 'storeHeader': {
+      const cats = p.categories ?? [];
+      return (
+        <div style={{ width: '100%', height: '100%', background: p.bg ?? 'linear-gradient(135deg, #0e0e0e 0%, #1a1a2e 100%)', borderRadius: p.borderRadius ?? 0, padding: p.padding ?? 40, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(75,142,255,0.1)', border: '1px solid rgba(75,142,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {p.logoSrc
+                ? <img src={p.logoSrc} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }} />
+                : <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#4b8eff' }}>storefront</span>}
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: p.nameFontSize ?? 32, fontWeight: 900, color: p.nameColor ?? '#e5e2e1', lineHeight: 1.2 }}>{p.storeName ?? 'Mağaza Adı'}</h1>
+              <p style={{ margin: '4px 0 0', fontSize: p.descFontSize ?? 16, color: p.descColor ?? '#9ca3af' }}>{p.storeDesc}</p>
+            </div>
+          </div>
+          {/* Search */}
+          {p.showSearch !== false && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: p.searchBg ?? '#1a1a1a', border: `1px solid ${p.searchBorderColor ?? 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '12px 18px', maxWidth: 500 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#555' }}>search</span>
+              <span style={{ fontSize: 14, color: '#444' }}>{p.searchPlaceholder ?? 'Ürün ara...'}</span>
+            </div>
+          )}
+          {/* Categories */}
+          {cats.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {cats.map((cat, i) => (
+                <span key={i} style={{ fontSize: 12, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? (p.activeCategoryColor ?? '#4b8eff') : '#888', background: i === 0 ? `${p.activeCategoryColor ?? '#4b8eff'}18` : 'rgba(255,255,255,0.04)', padding: '6px 16px', borderRadius: 8, cursor: 'pointer', border: i === 0 ? `1px solid ${p.activeCategoryColor ?? '#4b8eff'}44` : '1px solid transparent' }}>{cat}</span>
+              ))}
+            </div>
+          )}
+          <div style={{ position: 'absolute', top: 8, right: 14, fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(34,197,94,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>STORE HEADER</div>
+        </div>
+      );
+    }
+
     default:
       return null;
   }

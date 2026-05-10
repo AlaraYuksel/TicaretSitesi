@@ -84,6 +84,14 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
+# Terraform secret variables — ASLA commit etme!
+terraform.tfvars
+*.auto.tfvars
+
+# Lambda placeholder zip
+**/placeholder.zip
+**/ai_placeholder.zip
+
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
@@ -91,3 +99,4 @@ terraform.rc
 docker-compose.yml
 .backend.env
 .frontend.env
+.env.template

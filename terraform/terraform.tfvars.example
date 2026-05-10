@@ -1,0 +1,45 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Terraform Değişken Değerleri — ÖRNEK
+# Bu dosyayı terraform.tfvars olarak kopyalayın ve doldurun:
+#   cp terraform.tfvars.example terraform.tfvars
+# ⚠️  terraform.tfvars'ı GIT'e COMMIT ETMEYİN!
+# ═══════════════════════════════════════════════════════════════════════════════
+
+aws_region   = "eu-central-1"
+project_name = "marketplace"
+environment  = "dev"
+
+# Domain
+domain_name    = "iluvcode.art"
+route53_zone_id = ""
+
+# RDS
+db_username       = "platform_admin"
+db_password       = "BURAYA_GÜÇLÜ_BİR_ŞİFRE_YAZ"
+db_name           = "platform_prod"
+db_instance_class = "db.t3.micro"
+
+# Stripe
+stripe_secret_key        = "sk_test_..."
+stripe_webhook_secret    = "whsec_..."
+stripe_connect_client_id = "ca_..."
+
+# EasyPost
+easypost_api_key        = "EZTK..."
+easypost_webhook_secret = ""
+
+# AI — Claude
+anthropic_api_key = "sk-ant-..."
+claude_model      = "claude-sonnet-4-20250514"
+
+# Auth
+jwt_secret = "en-az-32-karakter-uzun-bir-gizli-anahtar"
+
+# SES
+ses_sender_email = "noreply@iluvcode.art"
+
+# Etiketler
+tags = {
+  Owner   = "Alara"
+  Project = "Marketplace"
+}

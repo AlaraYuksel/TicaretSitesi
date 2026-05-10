@@ -12,7 +12,7 @@ export const BREAKPOINTS = {
 export const BREAKPOINT_ORDER = ['desktop', 'tablet', 'mobile'];
 
 // Media element types that should scale height proportionally with width
-const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll']);
+const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll', 'productCard', 'productGrid', 'storeHeader']);
 
 export function getElementBounds(el, breakpoint = 'desktop') {
   if (el.breakpoints) {
@@ -269,6 +269,68 @@ export function defaultProps(type) {
       align: 'center', bg: 'transparent', borderRadius: 99,
       showBorder: true, borderColor: 'rgba(255,255,255,0.1)',
     },
+
+    // ── 🛒 E-Ticaret Elementleri ─────────────────────────────────────────────
+    productCard: {
+      imageSrc: '', imageAlt: 'Ürün görseli',
+      title: 'Ürün Adı',
+      description: 'Ürünün kısa açıklaması burada yer alır.',
+      price: 299.99, comparePrice: 399.99, currency: '₺',
+      rating: 4.5, reviewCount: 128,
+      badge: 'İNDİRİM', badgeBg: '#ef4444', badgeColor: '#fff',
+      ctaText: 'Sepete Ekle', ctaBg: '#22c55e', ctaColor: '#fff',
+      bg: '#1a1a1a', borderRadius: 16,
+      titleColor: '#e5e2e1', descColor: '#9ca3af', priceColor: '#22c55e',
+      oldPriceColor: '#555', borderColor: 'rgba(255,255,255,0.06)',
+      showBadge: true, showRating: true, showComparePrice: true,
+    },
+    productGrid: {
+      columns: 3, gap: 20, padding: 24,
+      bg: '#0e0e0e', borderRadius: 16,
+      sectionTitle: 'Öne Çıkan Ürünler', sectionTitleColor: '#e5e2e1',
+      sectionTitleSize: 28,
+      products: [
+        { id: 'p1', title: 'Kablosuz Kulaklık', price: 599.99, image: '', rating: 4.8, badge: 'YENİ' },
+        { id: 'p2', title: 'Akıllı Saat', price: 1299.99, image: '', rating: 4.5, badge: '' },
+        { id: 'p3', title: 'Bluetooth Hoparlör', price: 349.99, image: '', rating: 4.2, badge: 'FIRSAT' },
+        { id: 'p4', title: 'Laptop Çantası', price: 199.99, image: '', rating: 4.6, badge: '' },
+        { id: 'p5', title: 'USB-C Hub', price: 249.99, image: '', rating: 4.3, badge: '' },
+        { id: 'p6', title: 'Webcam HD', price: 449.99, image: '', rating: 4.7, badge: 'POPÜLER' },
+      ],
+      cardBg: '#1a1a1a', cardBorderColor: 'rgba(255,255,255,0.06)',
+      priceColor: '#22c55e', titleColor: '#e5e2e1',
+      badgeBg: '#4b8eff', badgeColor: '#fff',
+    },
+    cartButton: {
+      text: '🛒 Sepete Ekle', bg: '#22c55e', color: '#ffffff',
+      fontSize: 15, fontWeight: '700', borderRadius: 10,
+      paddingX: 28, paddingY: 14,
+      hoverBg: '#16a34a', iconPosition: 'left',
+      shadowX: 0, shadowY: 4, shadowBlur: 20, shadowColor: 'rgba(34,197,94,0.3)',
+      showItemCount: true, itemCount: 0,
+      fullWidth: false, size: 'medium',
+    },
+    priceTag: {
+      price: 299.99, comparePrice: 399.99, currency: '₺',
+      priceColor: '#22c55e', comparePriceColor: '#666',
+      priceFontSize: 32, comparePriceFontSize: 18,
+      fontWeight: '800', showDiscount: true,
+      discountBg: '#ef4444', discountColor: '#fff',
+      align: 'left',
+    },
+    storeHeader: {
+      storeName: 'Mağaza Adı',
+      storeDesc: 'En kaliteli ürünler, en uygun fiyatlar.',
+      logoSrc: '', bannerSrc: '',
+      bg: 'linear-gradient(135deg, #0e0e0e 0%, #1a1a2e 100%)',
+      nameColor: '#e5e2e1', descColor: '#9ca3af',
+      nameFontSize: 32, descFontSize: 16,
+      showSearch: true, searchPlaceholder: 'Ürün ara...',
+      searchBg: '#1a1a1a', searchBorderColor: 'rgba(255,255,255,0.1)',
+      categories: ['Tümü', 'Elektronik', 'Giyim', 'Ev & Yaşam'],
+      activeCategoryColor: '#4b8eff',
+      borderRadius: 0, padding: 40,
+    },
   };
   return map[type] ?? {};
 }
@@ -304,6 +366,12 @@ export function defaultDimensions(type) {
     table: { width: 680, height: 260 },
     dividerText: { width: 400, height: 32 },
     horizontalScroll: { width: 900, height: 280 },
+    // E-Ticaret
+    productCard: { width: 320, height: 460 },
+    productGrid: { width: 1200, height: 680 },
+    cartButton: { width: 200, height: 52 },
+    priceTag: { width: 280, height: 80 },
+    storeHeader: { width: 1440, height: 280 },
   };
   return map[type] ?? { width: 160, height: 80 };
 }
@@ -321,6 +389,10 @@ export function defaultElementName(type, count) {
     socialLinks: 'Social Links', countdown: 'Countdown',
     codeBlock: 'Code Block', table: 'Table', dividerText: 'Divider Text',
     horizontalScroll: 'Scroll List',
+    // E-Ticaret
+    productCard: 'Ürün Kartı', productGrid: 'Ürün Grid',
+    cartButton: 'Sepet Butonu', priceTag: 'Fiyat Etiketi',
+    storeHeader: 'Mağaza Header',
   };
   return `${names[type] ?? type} ${count}`;
 }
@@ -330,7 +402,7 @@ export function isContainerType(type) {
 }
 
 export function isBlockType(type) {
-  return ['navbar', 'sidebar', 'hero', 'card', 'form', 'accordion', 'tabs', 'testimonial'].includes(type);
+  return ['navbar', 'sidebar', 'hero', 'card', 'form', 'accordion', 'tabs', 'testimonial', 'productCard', 'productGrid', 'storeHeader'].includes(type);
 }
 
 // ─── SNAP ENGINE ─────────────────────────────────────────────────────────────

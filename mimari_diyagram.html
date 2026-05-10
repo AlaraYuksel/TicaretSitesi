@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketplace + AI — AWS Mimarisi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --bg2: #111318;
+    --bg3: #181c24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --text2: #8b90a0;
+    --text3: #4a5060;
+
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --blue-glow: rgba(59,130,246,0.25);
+    --purple: #8b5cf6;
+    --purple-dim: rgba(139,92,246,0.12);
+    --teal: #14b8a6;
+    --teal-dim: rgba(20,184,166,0.12);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.12);
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.12);
+    --coral: #f97316;
+    --coral-dim: rgba(249,115,22,0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.12);
+    --gray: #6b7280;
+    --gray-dim: rgba(107,114,128,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    letter-spacing: 0.05em;
+  }
+  .header-meta {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .layer-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .ltab {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    transition: all 0.18s;
+  }
+  .ltab:hover { background: var(--bg3); color: var(--text); }
+  .ltab.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+
+  /* ── CANVAS ── */
+  .canvas-wrap {
+    display: flex;
+    height: calc(100vh - 53px);
+  }
+
+  .canvas {
+    flex: 1;
+    overflow: auto;
+    padding: 40px;
+    position: relative;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 300px;
+    border-left: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .detail-card {
+    display: none;
+  }
+  .detail-card.active {
+    display: block;
+  }
+  .detail-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .detail-sub {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 14px;
+  }
+  .detail-section { margin-bottom: 14px; }
+  .detail-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .detail-section p {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin: 2px 2px 2px 0;
+  }
+  .cost-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .connects-to {
+    font-size: 11px;
+    color: var(--text2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .conn-pill {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+  .conn-pill:hover { border-color: var(--blue); color: var(--blue); }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  /* ── DIAGRAM LAYOUT ── */
+  .diagram {
+    min-width: 900px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Layer row */
+  .layer {
+    position: relative;
+    padding: 20px 0;
+    transition: opacity 0.3s;
+  }
+  .layer.dimmed { opacity: 0.15; pointer-events: none; }
+
+  .layer-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-left: 2px;
+  }
+
+  .node-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  /* NODE */
+  .node {
+    border-radius: 10px;
+    border: 1px solid var(--border2);
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    background: var(--bg2);
+    min-width: 130px;
+    flex: 1;
+    max-width: 220px;
+  }
+  .node:hover {
+    border-color: var(--node-color, var(--blue));
+    box-shadow: 0 0 0 1px var(--node-color, var(--blue)), 0 4px 20px rgba(0,0,0,0.4);
+    transform: translateY(-1px);
+  }
+  .node.selected {
+    border-color: var(--node-color, var(--blue));
+    box-shadow: 0 0 0 2px var(--node-color, var(--blue)), 0 6px 28px rgba(0,0,0,0.5);
+    background: color-mix(in srgb, var(--node-color, var(--blue)) 8%, var(--bg2));
+  }
+  .node-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-bottom: 8px;
+    background: color-mix(in srgb, var(--node-color, var(--blue)) 15%, transparent);
+  }
+  .node-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .node-sub {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.4;
+  }
+  .node-cost {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--bg3);
+    color: var(--text3);
+  }
+  .node-cost.free { color: var(--green); background: var(--green-dim); }
+  .node-cost.warn { color: var(--amber); background: var(--amber-dim); }
+
+  /* WIDE NODE */
+  .node.wide { max-width: 100%; flex: unset; width: 100%; }
+
+  /* CONNECTOR LINES via SVG overlay */
+  .connectors {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* LAYER SEPARATORS */
+  .layer-sep {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0;
+    opacity: 0.4;
+  }
+  .layer-sep-line { flex: 1; height: 1px; background: var(--border2); }
+  .layer-sep-text {
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  /* FLOW ARROWS between layers */
+  .flow-arrow {
+    text-align: center;
+    color: var(--text3);
+    font-size: 18px;
+    line-height: 1;
+    margin: 2px 0;
+    letter-spacing: 4px;
+  }
+
+  /* GROUP BOX (dashed container) */
+  .group-box {
+    border: 1px dashed var(--border2);
+    border-radius: 12px;
+    padding: 14px;
+    position: relative;
+  }
+  .group-box-label {
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    background: var(--bg);
+    padding: 0 6px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+  }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    background: var(--bg2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* COST SUMMARY */
+  .cost-summary {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .cost-chip {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text2);
+  }
+  .cost-chip span { font-weight: 600; }
+  .cost-chip.total { border-color: var(--blue); background: var(--blue-dim); color: var(--blue); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">◈ MARKETPLACE + AI — AWS MİMARİSİ</div>
+  <div class="layer-tabs">
+    <button class="ltab active" onclick="filterLayer('all')">Tümü</button>
+    <button class="ltab" onclick="filterLayer('edge')">Edge</button>
+    <button class="ltab" onclick="filterLayer('compute')">Compute</button>
+    <button class="ltab" onclick="filterLayer('ecommerce')">🛒 E-Ticaret</button>
+    <button class="ltab" onclick="filterLayer('data')">Veri</button>
+    <button class="ltab" onclick="filterLayer('ai')">AI</button>
+    <button class="ltab" onclick="filterLayer('async')">Async</button>
+    <button class="ltab" onclick="filterLayer('publish')">Publish</button>
+  </div>
+  <div class="header-meta">$40 bütçe · 30 gün · Türkiye kullanıcıları</div>
+</header>
+
+<div class="canvas-wrap">
+<div class="canvas" id="mainCanvas">
+<div class="diagram" id="diagram">
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Edge / CDN</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Compute</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>🛒 E-Ticaret</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Veritabanı</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Depolama</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--coral)"></div>Async / Kuyruk</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>AI Servisleri</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Domain / Altyapı</div>
+</div>
+
+<!-- COST BAR -->
+<div class="cost-summary">
+  <div class="cost-chip">RDS <span style="color:var(--amber)">~$13</span></div>
+  <div class="cost-chip">CloudFront <span>~$1</span></div>
+  <div class="cost-chip">Route53 <span>~$1</span></div>
+  <div class="cost-chip">S3 <span>~$2</span></div>
+  <div class="cost-chip">Lambda/DynDB/SQS <span style="color:var(--green)">~$0</span></div>
+  <div class="cost-chip">Claude API <span>~$5-15</span></div>
+  <div class="cost-chip total">Toplam <span>~$22-32/ay</span></div>
+</div>
+
+<!-- LAYER 1: KULLANICI -->
+<div class="layer" data-layer="edge">
+  <div class="layer-label">Kullanıcı</div>
+  <div class="node-row">
+    <div class="node wide" style="--node-color:var(--gray); max-width:100%; text-align:center; background:var(--bg3);"
+         onclick="showDetail('user')">
+      <div class="node-name" style="font-size:13px;">👤 Tarayıcı / Mobil</div>
+      <div class="node-sub">Alıcı · Satıcı · Site tasarımcısı · Görme engelli kullanıcı</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓ ↓ ↓</div>
+
+<!-- LAYER 2: EDGE -->
+<div class="layer" data-layer="edge">
+  <div class="layer-label">Edge Katmanı</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--blue); max-width:100%; flex:1"
+         onclick="showDetail('cloudfront')">
+      <div class="node-cost warn">~$1/ay</div>
+      <div class="node-icon">☁️</div>
+      <div class="node-name">CloudFront CDN</div>
+      <div class="node-sub">WAF · SSL/TLS · Edge cache · Path routing<br>/api/* → Lambda · /* → S3</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↙ ↓ ↘</div>
+
+<!-- LAYER 3: FRONTEND + API GATEWAY -->
+<div class="layer" data-layer="edge">
+  <div class="layer-label">Giriş Noktaları</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('s3-react')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">⚛️</div>
+      <div class="node-name">S3 — React/Vite</div>
+      <div class="node-sub">SPA build · index.html<br>JS/CSS · uzun TTL</div>
+    </div>
+    <div class="node" style="--node-color:var(--blue)" onclick="showDetail('apigw')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">🔀</div>
+      <div class="node-name">API Gateway</div>
+      <div class="node-sub">REST API · 1M req/ay free<br>Rate limiting · Auth</div>
+    </div>
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('s3-assets')">
+      <div class="node-cost free">~$1</div>
+      <div class="node-icon">🖼️</div>
+      <div class="node-name">S3 — User Assets</div>
+      <div class="node-sub">Ürün görselleri · medya<br>pgvector için image URL</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 4: LAMBDA COMPUTE -->
+<div class="layer" data-layer="compute">
+  <div class="layer-label">Compute Katmanı — Lambda (Go Runtime)</div>
+  <div class="group-box">
+    <div class="group-box-label">ECS yerine Lambda · cold start ~200ms · idle maliyet $0</div>
+    <div class="node-row">
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('lambda-auth')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">🔐</div>
+        <div class="node-name">Auth λ</div>
+        <div class="node-sub">JWT · OAuth<br>Kayıt · Giriş</div>
+      </div>
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('lambda-products')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">📦</div>
+        <div class="node-name">Products λ</div>
+        <div class="node-sub">CRUD · pgvector arama<br>Kategori · fiyat filtre</div>
+      </div>
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('lambda-orders')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">🛒</div>
+        <div class="node-name">Orders λ</div>
+        <div class="node-sub">Stripe PaymentIntent<br>Escrow · sepet</div>
+      </div>
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('lambda-seller')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">🏪</div>
+        <div class="node-name">Seller λ</div>
+        <div class="node-sub">Stripe Connect<br>Dashboard · analytics</div>
+      </div>
+      <div class="node" style="--node-color:var(--coral)" onclick="showDetail('lambda-webhook')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">🔗</div>
+        <div class="node-name">Webhooks λ</div>
+        <div class="node-sub">/api/webhooks/easypost<br>/api/webhooks/stripe</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 4.5: E-TİCARET TOOL -->
+<div class="layer" data-layer="compute">
+  <div class="layer-label">🛒 E-Ticaret Tool Katmanı — Satıcıların sitelerine ürün koyabildiği araç seti</div>
+  <div class="group-box">
+    <div class="group-box-label">Marketplace Engine · Ürün → Sipariş → Ödeme → Kargo → Escrow Release</div>
+    <div class="node-row">
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('ecom-catalog')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">📋</div>
+        <div class="node-name">Ürün Kataloğu</div>
+        <div class="node-sub">CRUD · varyantlar · stok<br>görsel upload (S3)<br>pgvector embedding</div>
+      </div>
+      <div class="node" style="--node-color:var(--purple)" onclick="showDetail('ecom-cart')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">🛒</div>
+        <div class="node-name">Sepet & Checkout</div>
+        <div class="node-sub">DynamoDB sepet (TTL)<br>Stripe PaymentIntent<br>Adres doğrulama</div>
+      </div>
+      <div class="node" style="--node-color:var(--coral)" onclick="showDetail('ecom-payment')">
+        <div class="node-cost warn">%2.9 + 30¢</div>
+        <div class="node-icon">💳</div>
+        <div class="node-name">Ödeme & Escrow</div>
+        <div class="node-sub">Stripe Connect<br>Platform komisyon<br>Escrow → teslimde release</div>
+      </div>
+      <div class="node" style="--node-color:var(--blue)" onclick="showDetail('ecom-shipping')">
+        <div class="node-cost free">API bazlı</div>
+        <div class="node-icon">🚚</div>
+        <div class="node-name">Kargo & Takip</div>
+        <div class="node-sub">EasyPost etiket<br>Webhook → SQS<br>Gerçek zamanlı takip</div>
+      </div>
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ecom-seller-tools')">
+        <div class="node-cost free">$0</div>
+        <div class="node-icon">📊</div>
+        <div class="node-name">Satıcı Araçları</div>
+        <div class="node-sub">Dashboard · analytics<br>Sipariş yönetimi<br>Stripe payout</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 5: VERİ -->
+<div class="layer" data-layer="data">
+  <div class="layer-label">Veri Katmanı</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--amber)" onclick="showDetail('rds')">
+      <div class="node-cost warn">~$13/ay</div>
+      <div class="node-icon">🐘</div>
+      <div class="node-name">RDS PostgreSQL</div>
+      <div class="node-sub">db.t3.micro · Single-AZ<br>+ pgvector eklentisi</div>
+    </div>
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('dynamo')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">⚡</div>
+      <div class="node-name">DynamoDB</div>
+      <div class="node-sub">Session · cart · chat history<br>25GB free · TTL</div>
+    </div>
+    <div class="node" style="--node-color:var(--amber)" onclick="showDetail('pgvector')">
+      <div class="node-cost free">RDS içinde</div>
+      <div class="node-icon">🧮</div>
+      <div class="node-name">pgvector</div>
+      <div class="node-sub">Ürün embedding'leri<br>RAG arama · cosine sim</div>
+    </div>
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('s3-publish')">
+      <div class="node-cost free">~$0.5</div>
+      <div class="node-icon">🌐</div>
+      <div class="node-name">S3 — Published Sites</div>
+      <div class="node-sub">user.platform.com/site<br>Statik HTML/CSS çıktı</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 6: ASYNC -->
+<div class="layer" data-layer="async">
+  <div class="layer-label">Async / Event Katmanı</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--coral)" onclick="showDetail('sqs-finance')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">💰</div>
+      <div class="node-name">SQS — Finance</div>
+      <div class="node-sub">EasyPost → Stripe escrow<br>DLQ · idempotency key</div>
+    </div>
+    <div class="node" style="--node-color:var(--coral)" onclick="showDetail('sqs-publish')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">📤</div>
+      <div class="node-name">SQS — Publish</div>
+      <div class="node-sub">Site render işleri<br>DLQ · retry 3x</div>
+    </div>
+    <div class="node" style="--node-color:var(--coral)" onclick="showDetail('sqs-notif')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">🔔</div>
+      <div class="node-name">SQS — Notifications</div>
+      <div class="node-sub">Email · SMS · sipariş<br>SES ile teslim</div>
+    </div>
+    <div class="node" style="--node-color:var(--green)" onclick="showDetail('eventbridge')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">📡</div>
+      <div class="node-name">EventBridge</div>
+      <div class="node-sub">Tıklama · sipariş eventi<br>Öneri sistemini tetikler</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 7: AI -->
+<div class="layer" data-layer="ai">
+  <div class="layer-label">AI Servisleri Katmanı</div>
+  <div class="group-box">
+    <div class="group-box-label">Lambda tabanlı · talebe göre ölçeklenir · idle = $0</div>
+    <div class="node-row">
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ai-chatbot')">
+        <div class="node-cost warn">token/istek</div>
+        <div class="node-icon">💬</div>
+        <div class="node-name">Sipariş Chatbot λ</div>
+        <div class="node-sub">Sipariş durumu · kargo<br>Claude API + DynamoDB geçmiş</div>
+      </div>
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ai-product')">
+        <div class="node-cost warn">token/istek</div>
+        <div class="node-icon">🔍</div>
+        <div class="node-name">Ürün Q&A λ</div>
+        <div class="node-sub">pgvector → top-5 → Claude<br>RAG mimarisi</div>
+      </div>
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ai-vision')">
+        <div class="node-cost warn">token/istek</div>
+        <div class="node-icon">👁️</div>
+        <div class="node-name">Vision λ</div>
+        <div class="node-sub">Görme engelli · görsel okur<br>Claude Vision + AWS Polly TTS</div>
+      </div>
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ai-builder')">
+        <div class="node-cost warn">token/istek</div>
+        <div class="node-icon">🤖</div>
+        <div class="node-name">Site Builder Agent λ</div>
+        <div class="node-sub">Prompt → JSON layout → HTML<br>SQS async · SSE stream</div>
+      </div>
+      <div class="node" style="--node-color:var(--green)" onclick="showDetail('ai-recommend')">
+        <div class="node-cost free">~$0</div>
+        <div class="node-icon">✨</div>
+        <div class="node-name">Öneri λ</div>
+        <div class="node-sub">Collaborative filter<br>EventBridge → DynamoDB cache</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 8: PUBLISH OUTPUT -->
+<div class="layer" data-layer="publish">
+  <div class="layer-label">Yayın Çıktısı</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('lambda-publisher')">
+      <div class="node-cost free">$0</div>
+      <div class="node-icon">⚙️</div>
+      <div class="node-name">Publisher λ</div>
+      <div class="node-sub">SQS'ten alır · HTML/CSS render<br>S3'e yazar · invalidate CF</div>
+    </div>
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('lambda-finance-worker')">
+      <div class="node-cost free">$0</div>
+      <div class="node-icon">💳</div>
+      <div class="node-name">Finance Worker λ</div>
+      <div class="node-sub">SQS Finance → Stripe API<br>Escrow release · idempotent</div>
+    </div>
+    <div class="node" style="--node-color:var(--teal)" onclick="showDetail('polly')">
+      <div class="node-cost warn">~$4/1M kar</div>
+      <div class="node-icon">🔊</div>
+      <div class="node-name">AWS Polly TTS</div>
+      <div class="node-sub">Vision λ çıktısını sese çevirir<br>Türkçe destek · stream</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow">↓</div>
+
+<!-- LAYER 9: DOMAIN -->
+<div class="layer" data-layer="publish">
+  <div class="layer-label">Domain & Sertifika</div>
+  <div class="node-row">
+    <div class="node" style="--node-color:var(--gray)" onclick="showDetail('route53')">
+      <div class="node-cost warn">~$1/ay</div>
+      <div class="node-icon">🌍</div>
+      <div class="node-name">Route 53</div>
+      <div class="node-sub">Wildcard CNAME<br>Custom domain yönlendirme</div>
+    </div>
+    <div class="node" style="--node-color:var(--gray)" onclick="showDetail('acm')">
+      <div class="node-cost free">~$0</div>
+      <div class="node-icon">🔒</div>
+      <div class="node-name">ACM</div>
+      <div class="node-sub">Wildcard SSL *.platform.com<br>Otomatik yenileme</div>
+    </div>
+    <div class="node" style="--node-color:var(--blue)" onclick="showDetail('cf-published')">
+      <div class="node-cost warn">~$0.5</div>
+      <div class="node-icon">☁️</div>
+      <div class="node-name">CloudFront — Published</div>
+      <div class="node-sub">Yayınlanan sitelerin CDN'i<br>ahmetin-kafe.com → S3</div>
+    </div>
+    <div class="node" style="--node-color:var(--gray)" onclick="showDetail('terraform')">
+      <div class="node-cost free">—</div>
+      <div class="node-icon">🏗️</div>
+      <div class="node-name">Terraform</div>
+      <div class="node-sub">Tüm altyapı kod olarak<br>IaC · tekrarlanabilir</div>
+    </div>
+  </div>
+</div>
+
+<!-- DIŞSAL SERVİSLER -->
+<div style="margin-top: 20px;">
+<div class="layer-sep">
+  <div class="layer-sep-line"></div>
+  <div class="layer-sep-text">Dışsal Servisler</div>
+  <div class="layer-sep-line"></div>
+</div>
+<div class="node-row" style="margin-top:12px;">
+  <div class="node" style="--node-color:var(--purple)" onclick="showDetail('stripe')">
+    <div class="node-icon">💳</div>
+    <div class="node-name">Stripe</div>
+    <div class="node-sub">Payment Intent · Connect<br>Escrow · Webhook</div>
+  </div>
+  <div class="node" style="--node-color:var(--blue)" onclick="showDetail('easypost')">
+    <div class="node-icon">📦</div>
+    <div class="node-name">EasyPost</div>
+    <div class="node-sub">Kargo takip · Webhook<br>Teslim → escrow release</div>
+  </div>
+  <div class="node" style="--node-color:var(--green)" onclick="showDetail('claude-api')">
+    <div class="node-icon">🤖</div>
+    <div class="node-name">Claude API</div>
+    <div class="node-sub">claude-sonnet-4 · Vision<br>Chatbot · RAG · Agent</div>
+  </div>
+  <div class="node" style="--node-color:var(--gray)" onclick="showDetail('ses')">
+    <div class="node-icon">✉️</div>
+    <div class="node-name">Amazon SES</div>
+    <div class="node-sub">Sipariş bildirimi · e-posta<br>Satıcı uyarıları</div>
+  </div>
+</div>
+</div>
+
+</div><!-- /diagram -->
+</div><!-- /canvas -->
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-title">Bileşen Detayı</div>
+
+  <div class="empty-state" id="emptyState">
+    Bir bileşene tıklayarak<br>detayları görüntüle
+  </div>
+
+  <!-- DETAIL CARDS -->
+  <div class="detail-card" id="detail-cloudfront">
+    <div class="detail-name">CloudFront CDN</div>
+    <div class="detail-sub">AWS · Edge / CDN Katmanı</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Tüm trafiğin ilk giriş noktası. Türkiye'den bağlanan kullanıcıları İrlanda sunucusuna göndermek yerine Frankfurt edge'ine yönlendirir. ~120ms yerine ~18ms.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Path routing</div>
+      <p><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">/api/*</code> → API Gateway → Lambda<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">/*</code> → S3 React build</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ek görevler</div>
+      <p>WAF (bot engelleme, rate limit), wildcard SSL (ACM), ürün görseli cache (7 gün TTL), satıcı sitelerini host etme.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--amber)">~$1/ay</div>
+      <p>1TB/ay free data transfer. Türkiye trafiği Frankfurt'tan çıkar.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('s3-react')">S3 React</span>
+        <span class="conn-pill" onclick="showDetail('apigw')">API Gateway</span>
+        <span class="conn-pill" onclick="showDetail('acm')">ACM</span>
+        <span class="conn-pill" onclick="showDetail('s3-assets')">S3 Assets</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-apigw">
+    <div class="detail-name">API Gateway</div>
+    <div class="detail-sub">AWS · REST API · Giriş Noktası</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>CloudFront'tan gelen /api/* isteklerini ilgili Lambda fonksiyonuna yönlendirir. Her endpoint için ayrı Lambda tetiklenir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Özellikler</div>
+      <p>Request validation, JWT authorizer, rate limiting, CORS headers, request/response mapping.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+      <p>1M istek/ay free tier. Aşarsa $3.50/1M istek.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-rds">
+    <div class="detail-name">RDS PostgreSQL</div>
+    <div class="detail-sub">db.t3.micro · Single-AZ · + pgvector</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne tutar?</div>
+      <p>Kullanıcılar, satıcılar, ürünler, siparişler, para işlemleri (transactions), site konfigürasyonları.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">pgvector eklentisi</div>
+      <p>Ürün açıklamalarının embedding vektörleri bu veritabanında saklanır. RAG araması için cosine similarity sorgusu çalıştırılır. Ayrı bir vektör DB gerekmez.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Büyük veri stratejisi</div>
+      <p>orders ve transactions tabloları aylık partition'a bölünmeli. products tablosunda seller_id + category composite index şart.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--amber)">~$13/ay ⚠️</div>
+      <p>En büyük maliyet kalemi. Multi-AZ $28/ay olur — MVP için Single-AZ yeterli.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-pgvector">
+    <div class="detail-name">pgvector</div>
+    <div class="detail-sub">PostgreSQL eklentisi · RAG mimarisi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden gerekli?</div>
+      <p>Chatbot "kırmızı spor ayakkabı" dediğinde 1 milyon ürünü LLM'e veremezsin. pgvector ile önce en yakın 5 ürün bulunur, sadece onlar Claude'a gönderilir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>1. Ürün eklenince → embedding üret (Claude Embeddings API)<br>2. Vektörü RDS'e kaydet<br>3. Kullanıcı sorusu → vektöre çevir → cosine similarity → top-5<br>4. top-5 ürün + soru → Claude → cevap</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">RDS içinde ~$0 ek</div>
+      <p>Sadece embedding üretme (Claude API token maliyeti).</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-dynamo">
+    <div class="detail-name">DynamoDB</div>
+    <div class="detail-sub">AWS · NoSQL · Session & Chat</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne tutar?</div>
+      <p>Kullanıcı session'ları, sepet verileri, chatbot konuşma geçmişleri, öneri cache sonuçları, rate limit sayaçları.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden RDS değil?</div>
+      <p>Chat geçmişi JSON blob — relational DB'de tutmak hem pahalı hem yavaş. DynamoDB'de her kullanıcının konuşması ayrı item, TTL ile otomatik silinir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+      <p>25GB + 25 WCU + 25 RCU free tier. Büyük ihtimalle bu sınırı aşmazsın.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-sqs-finance">
+    <div class="detail-name">SQS — Finance Queue</div>
+    <div class="detail-sub">Finansal işlemler için kritik kuyruk</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>EasyPost → Webhooks λ → SQS Finance → Finance Worker λ → Stripe API</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden şart?</div>
+      <p>Stripe o an yavaşsa veya çökse bile EasyPost'a anında 200 OK dönersin. Mesaj SQS'te bekler. Stripe düzelince otomatik işlenir. Para kaybolmaz.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Güvenlik mekanizmaları</div>
+      <p><strong>DLQ:</strong> 3 başarısız denemeden sonra Dead Letter Queue'ya düşer, alarm çalar.<br><strong>Idempotency key:</strong> order_id + event_type kombinasyonu — aynı transfer iki kez yapılmaz.<br><strong>Visibility timeout:</strong> İşlenirken başka worker alamaz.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+      <p>1M mesaj/ay free tier.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-sqs-publish">
+    <div class="detail-name">SQS — Publish Queue</div>
+    <div class="detail-sub">Site yayınlama işleri</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden gerekli?</div>
+      <p>Site render işlemi 5-30 saniye sürer. Kullanıcıyı bu kadar bekletirsen ürün kullanılmaz. SQS ile kullanıcı anında geri döner, render arka planda tamamlanır.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>Kullanıcı "Yayınla" → Orders λ → SQS Publish → "Yayınlanıyor..." göster → Publisher λ arka planda render → S3'e yaz → "Siteniz yayında!" bildir</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ai-vision">
+    <div class="detail-name">Vision λ</div>
+    <div class="detail-sub">Görme engelli kullanıcı desteği</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Ürün sayfasına girildiğinde görsel + ürün adı + fiyat bilgisini alır, Claude Vision API'ye gönderir. Dönen metni AWS Polly ile Türkçe sese çevirir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Örnek çıktı</div>
+      <p style="font-style:italic;color:var(--text2)">"Bu Ülker marka bir çikolata. Görselde 6 adet görünse de bir adet ürün 12 TL. Satın almak veya sepete eklemek ister misiniz?"</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Cache stratejisi</div>
+      <p>Aynı image_hash için DynamoDB'de cache tutulur. Popüler ürünler için API maliyeti sıfıra yaklaşır.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('claude-api')">Claude Vision</span>
+        <span class="conn-pill" onclick="showDetail('polly')">AWS Polly</span>
+        <span class="conn-pill" onclick="showDetail('dynamo')">DynamoDB cache</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ai-chatbot">
+    <div class="detail-name">Sipariş Chatbot λ</div>
+    <div class="detail-sub">Kullanıcı sipariş sorgulama botu</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Kullanıcı "siparişim nerede?" dediğinde EasyPost'tan kargo durumunu çeker, Claude API ile doğal dil cevabı üretir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Konuşma geçmişi</div>
+      <p>Her turn DynamoDB'ye yazılır. TTL ile 30 gün sonra silinir. Kullanıcı sayfayı kapayıp gelince konuşmaya devam edebilir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">SSE stream</div>
+      <p>Claude'un cevabı token token frontend'e akar. Kullanıcı bekleme hissetmez.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ai-product">
+    <div class="detail-name">Ürün Q&A λ</div>
+    <div class="detail-sub">RAG tabanlı ürün chatbotu</div>
+    <div class="detail-section">
+      <div class="detail-section-title">RAG akışı</div>
+      <p>1. Kullanıcı sorusu → embedding<br>2. pgvector cosine search → top-5 ürün<br>3. top-5 + soru → Claude API<br>4. Cevap stream → frontend</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden RAG?</div>
+      <p>1M ürünü LLM'e veremezsin (context window + maliyet). pgvector ile sadece ilgili 5 ürünü seçip gönderirsin — doğru ve ucuz.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ai-builder">
+    <div class="detail-name">Site Builder Agent λ</div>
+    <div class="detail-sub">AI ile site tasarımı</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>1. Kullanıcı prompt girer → API Gateway → SQS async<br>2. Agent λ tetiklenir → Claude API (multi-turn)<br>3. JSON layout üretilir → HTML/CSS render<br>4. S3'e yazılır → CF invalidate<br>5. SSE ile "Header tamamlandı... Ürün grid ekleniyor..." bildirimleri</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden async?</div>
+      <p>Bu işlem 30-120 saniye sürebilir. Lambda timeout 15 dakika — yeterli. Ama kullanıcıyı beklettirmemek için SQS + SSE polling şart.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ai-recommend">
+    <div class="detail-name">Öneri λ</div>
+    <div class="detail-sub">Collaborative filtering sistemi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Nasıl çalışır?</div>
+      <p>EventBridge'den kullanıcı tıklama ve sipariş eventlerini alır. "Bu ürünü alanlar şunu da aldı" matrisini DynamoDB'de günceller. Sonuçları TTL ile cache'ler.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Amazon Personalize yerine neden bu?</div>
+      <p>Personalize kurulumu karmaşık, aylık maliyeti yüksek, minimum veri seti gerektirir. Bu yaklaşım $0 maliyetle başlar, yeterli veri birikince Personalize'a geçilebilir.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-stripe">
+    <div class="detail-name">Stripe</div>
+    <div class="detail-sub">Ödeme altyapısı · Dışsal servis</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Kullanılan özellikler</div>
+      <p><strong>Payment Intent:</strong> Alıcıdan ödeme al, escrow'da tut.<br><strong>Connect:</strong> Satıcı hesapları oluştur.<br><strong>Transfer:</strong> Kargo tesliminde satıcıya gönder.<br><strong>Webhook:</strong> Ödeme başarı/başarısız bildirimleri.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Escrow akışı</div>
+      <p>Alıcı öder → Stripe escrow → EasyPost "teslim edildi" → SQS Finance → Finance Worker → Stripe Transfer → Satıcı hesabı</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-easypost">
+    <div class="detail-name">EasyPost</div>
+    <div class="detail-sub">Kargo entegrasyonu · Dışsal servis</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Satıcı kargo oluşturduğunda EasyPost etiketi üretir. Kargo durumu değiştiğinde (shipped, in transit, delivered) /api/webhooks/easypost endpoint'ine POST atar.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Kritik event</div>
+      <p><code style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:3px;">status: "delivered"</code> gelince Finance Queue tetiklenir → escrow release başlar.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-polly">
+    <div class="detail-name">AWS Polly TTS</div>
+    <div class="detail-sub">Metin → Ses dönüşümü</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Vision λ'nın ürettiği ürün açıklama metnini Türkçe sese çevirir. Çıktı stream olarak frontend'e gönderilir veya S3'e yazılır.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--amber)">~$4/1M karakter</div>
+      <p>DynamoDB cache ile aynı ürün için tekrar üretilmez. Gerçek maliyet çok düşük kalır.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-terraform">
+    <div class="detail-name">Terraform</div>
+    <div class="detail-sub">Infrastructure as Code</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden önemli?</div>
+      <p>Tüm altyapıyı kod olarak tanımlar. Silip tekrar kurabilirsin. CI/CD ile otomatik deploy. Farklı environment (dev/prod) aynı config'den.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Kapsam</div>
+      <p>Lambda · API Gateway · RDS · DynamoDB · S3 · CloudFront · SQS · EventBridge · Route53 · ACM · Polly IAM roles</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-claude-api">
+    <div class="detail-name">Claude API</div>
+    <div class="detail-sub">Anthropic · Tüm AI işlemleri</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Kullanılan yerler</div>
+      <p>Sipariş chatbotu, ürün Q&A (RAG), görme engelli ürün açıklaması (Vision), site builder agent, ürün embedding üretimi.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Model seçimi</div>
+      <p><strong>claude-sonnet-4:</strong> Chatbot, Q&A (dengeli maliyet/kalite)<br><strong>claude-opus:</strong> Site builder agent (karmaşık reasoning)</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet kontrolü</div>
+      <p>DynamoDB cache ile tekrar eden sorularda API çağrısı yapılmaz. pgvector ile context window küçük tutulur.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-webhook">
+    <div class="detail-name">Webhooks λ</div>
+    <div class="detail-sub">/api/webhooks/easypost · /api/webhooks/stripe</div>
+    <div class="detail-section">
+      <div class="detail-section-title">EasyPost webhook akışı</div>
+      <p>1. POST isteği gelir<br>2. Signature doğrula (HMAC)<br>3. Veriyi SQS Finance'e at<br>4. Anında 200 OK dön<br>5. EasyPost mutlu — tekrar denemez</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden bu kadar hızlı dönmeli?</div>
+      <p>EasyPost 5 saniye timeout uygular. Cevap gelmezse aynı webhook'u 10 kez gönderir. Senkron Stripe çağrısı yapsan timeout kaçınılmaz.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-s3-react">
+    <div class="detail-name">S3 — React/Vite Build</div>
+    <div class="detail-sub">Frontend statik dosyaları</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne içerir?</div>
+      <p>Derlenmiş React uygulaması. index.html, JS bundle, CSS. Tüm routing client-side — 404 → index.html yönlendirmesi CloudFront'ta.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Cache stratejisi</div>
+      <p>JS/CSS: uzun TTL (hash'li dosya adı). index.html: kısa TTL (her deploy'da invalidate).</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-finance-worker">
+    <div class="detail-name">Finance Worker λ</div>
+    <div class="detail-sub">Escrow → Satıcı transfer işlemi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>1. SQS Finance'ten mesaj al<br>2. DynamoDB'de idempotency key kontrol et<br>3. Daha önce işlendiyse atla<br>4. Stripe Transfer API çağır<br>5. Başarılı → mesajı SQS'ten sil + DynamoDB'ye işle<br>6. Başarısız → mesajı silme, SQS tekrar dener</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Kritik: idempotency</div>
+      <p>order_id + "delivered" kombinasyonu DynamoDB'de işaretlenir. EasyPost aynı eventi 2 kez gönderse bile transfer bir kez yapılır.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-route53">
+    <div class="detail-name">Route 53</div>
+    <div class="detail-sub">DNS yönetimi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>platform.com → CloudFront. *.platform.com (satıcı subdomainleri) → Published Sites CloudFront. Satıcının kendi domain'i → CNAME ile aynı yere.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--amber)">~$1/ay</div>
+      <p>$0.50/zone + query başına küçük maliyet.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-eventbridge">
+    <div class="detail-name">EventBridge</div>
+    <div class="detail-sub">Event bus · Öneri sistemi tetikleyici</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Kullanıcı bir ürüne tıkladığında veya sipariş verdiğinde bu event EventBridge'e gönderilir. Öneri λ bu eventi alarak kullanıcı-ürün matrisini günceller.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Neden SQS değil?</div>
+      <p>Bu eventler kaybolsa sorun olmaz — öneri sistemi best-effort. SQS retry/DLQ gereksiz. EventBridge daha temiz bir pattern.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-acm">
+    <div class="detail-name">ACM</div>
+    <div class="detail-sub">AWS Certificate Manager · SSL</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>*.platform.com için wildcard SSL sertifikası üretir. Tüm satıcı subdomain'leri tek sertifikayla HTTPS olur. Otomatik yenileme — süresi dolma riski sıfır.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">~$0/ay</div>
+      <p>CloudFront ile kullanıldığında tamamen ücretsiz.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ses">
+    <div class="detail-name">Amazon SES</div>
+    <div class="detail-sub">E-posta gönderimi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Sipariş onayı, kargo bildirimi, satıcı uyarıları. SQS Notifications kuyruğundan tüketilir.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--green)">62K/ay free</div>
+      <p>Sonrası $0.10/1K e-posta.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-cf-published">
+    <div class="detail-name">CloudFront — Published Sites</div>
+    <div class="detail-sub">Satıcı sitelerinin CDN'i</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>ahmetin-kafe.com → bu CloudFront dağıtımı → S3 Published Sites bucket'ı. Host header'dan hangi satıcının sitesini servis edeceğini anlar.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Platform CloudFront'undan farkı?</div>
+      <p>Bunlar ayrı dağıtımlar. Platform CDN'i /api/* ve /* routing yapar. Bu CDN sadece statik site servisi için — daha basit konfigürasyon.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-s3-publish">
+    <div class="detail-name">S3 — Published Sites</div>
+    <div class="detail-sub">Satıcıların yayınladığı siteler</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Yapı</div>
+      <p>Her satıcı için ayrı klasör: <code style="font-size:10px;background:var(--bg3);padding:2px 5px;border-radius:3px;">/{site-slug}/index.html</code>. Publisher λ HTML render edip buraya yazar.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Avantaj</div>
+      <p>Binlerce satıcı sitesi sıfır sunucu maliyetiyle host edilir. Her site güncelleme → Publisher λ → S3 → CloudFront invalidate.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-user">
+    <div class="detail-name">Kullanıcı Tipleri</div>
+    <div class="detail-sub">Platforma erişen 4 farklı profil</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Alıcı</div>
+      <p>Ürün arar, sepete ekler, ödeme yapar. Chatbot ile sipariş sorgular. Görme engelliyse Vision λ ürünleri okur.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Satıcı</div>
+      <p>Ürün ekler (görsel → S3, açıklama → pgvector). Site tasarlar (AI Builder). Stripe Connect ile ödeme alır. Kargo oluşturur (EasyPost).</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Site ziyaretçisi</div>
+      <p>Satıcının özel domain'ine girer (ahmetin-kafe.com) → CloudFront → S3 statik HTML. Go API'ye hiç ulaşmaz.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-s3-assets">
+    <div class="detail-name">S3 — User Assets</div>
+    <div class="detail-sub">Ürün görselleri ve medya</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne tutar?</div>
+      <p>Satıcıların yüklediği ürün fotoğrafları, mağaza logoları, banner görselleri. Vision λ bu URL'leri okur.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">CloudFront ile cache</div>
+      <p>Görseller CloudFront üzerinden serve edilir, 7 gün TTL. Aynı görsel 1000 kişi istese S3'e 1 istek gider.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-auth">
+    <div class="detail-name">Auth λ</div>
+    <div class="detail-sub">Kimlik doğrulama</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Kullanıcı kaydı, giriş, JWT üretimi, token yenileme. OAuth (Google/Apple) entegrasyonu. Session DynamoDB'de saklanır.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-products">
+    <div class="detail-name">Products λ</div>
+    <div class="detail-sub">Ürün yönetimi</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Ürün ekleme/düzenleme/silme. Görsel S3'e yükleme. Açıklama metni → Claude Embeddings → pgvector'a kayıt. Kategori ve fiyat filtreleme.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-orders">
+    <div class="detail-name">Orders λ</div>
+    <div class="detail-sub">Sipariş ve ödeme</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Stripe PaymentIntent oluşturur. Ödeme tamamlanınca siparişi RDS'e yazar. EasyPost kargo etiketi için Seller λ'yı tetikler. SQS Notifications'a bildirim atar.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-seller">
+    <div class="detail-name">Seller λ</div>
+    <div class="detail-sub">Satıcı dashboard ve yönetim</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Stripe Connect onboarding. Satış analytics (RDS sorguları). EasyPost kargo etiketi oluşturma. Mağaza ayarları. Stripe dashboard linki.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-sqs-notif">
+    <div class="detail-name">SQS — Notifications</div>
+    <div class="detail-sub">E-posta ve bildirim kuyruğu</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne gönderir?</div>
+      <p>Sipariş onayı (alıcıya), yeni sipariş bildirimi (satıcıya), kargo güncellemesi, escrow release bildirimi. SES ile teslim edilir.</p>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-lambda-publisher">
+    <div class="detail-name">Publisher λ</div>
+    <div class="detail-sub">Site render ve yayınlama</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>1. SQS Publish'ten iş al<br>2. RDS'ten site konfigürasyonunu çek<br>3. HTML/CSS template render et<br>4. S3 Published Sites'a yaz<br>5. CloudFront invalidation tetikle<br>6. Kullanıcıya "Yayında!" bildirimi gönder</p>
+    </div>
+  </div>
+
+  <!-- E-TİCARET TOOL DETAIL CARDS -->
+  <div class="detail-card" id="detail-ecom-catalog">
+    <div class="detail-name">📋 Ürün Kataloğu</div>
+    <div class="detail-sub">E-Ticaret Tool · Marketplace Engine</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Satıcıların sitelerine ürün ekleyebildiği tam kapsamlı katalog sistemi. CRUD işlemleri, varyant desteği (beden, renk), stok takibi, çoklu görsel yükleme (S3).</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">AI Entegrasyonu</div>
+      <p>Ürün eklendiğinde açıklama metni Claude Embeddings API ile vektöre dönüştürülür. pgvector'a kaydedilir. "Kırmızı spor ayakkabı" gibi doğal dil aramaları mümkün olur.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Veritabanı</div>
+      <p><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">products</code> tablosu: title, slug, price (kuruş), variants (JSONB), images (JSONB), tags (text[]), status (draft/active/archived).</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">API Endpoints</div>
+      <p><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">GET /api/products</code> → liste + arama + filtre<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">POST /api/products</code> → ürün oluştur (auth)<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">PUT /api/products/{id}</code> → güncelle<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">DELETE /api/products/{id}</code> → soft delete</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('rds')">RDS + pgvector</span>
+        <span class="conn-pill" onclick="showDetail('s3-assets')">S3 Assets</span>
+        <span class="conn-pill" onclick="showDetail('ai-product')">Ürün Q&A</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ecom-cart">
+    <div class="detail-name">🛒 Sepet & Checkout</div>
+    <div class="detail-sub">E-Ticaret Tool · Satın Alma Akışı</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Sepet</div>
+      <p>DynamoDB'de tutulur (hız + TTL). 30 dakika işlem yapılmazsa otomatik silinir. Kullanıcı giriş yapmasa bile çalışır (anonymous cart).</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Checkout akışı</div>
+      <p>1. Sepet snapshot'ı alınır (fiyat kilitlenir)<br>2. Stok kontrol (atomik decrement)<br>3. Stripe PaymentIntent oluşturulur<br>4. Frontend Stripe.js ile ödeme alır<br>5. Webhook → sipariş onaylanır</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('dynamo')">DynamoDB</span>
+        <span class="conn-pill" onclick="showDetail('stripe')">Stripe</span>
+        <span class="conn-pill" onclick="showDetail('rds')">RDS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ecom-payment">
+    <div class="detail-name">💳 Ödeme & Escrow</div>
+    <div class="detail-sub">E-Ticaret Tool · Stripe Connect Marketplace</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Escrow akışı</div>
+      <p>1. Alıcı öder → Stripe escrow'da tutar<br>2. Satıcı kargoyu gönderir (EasyPost)<br>3. EasyPost "delivered" webhook'u gelir<br>4. Webhook λ → SQS Finance kuyruğu<br>5. Finance Worker λ → Stripe Transfer API<br>6. Para satıcının Connected Account'una aktarılır<br>7. Platform komisyonu kesilir</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Güvenlik</div>
+      <p><strong>Idempotency key:</strong> order_id + event_type — aynı transfer 2 kez yapılmaz.<br><strong>DLQ:</strong> 3 başarısız → alarm.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Maliyet</div>
+      <div class="cost-tag" style="color:var(--amber)">Stripe: %2.9 + 30¢ / işlem</div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ecom-shipping">
+    <div class="detail-name">🚚 Kargo & Takip</div>
+    <div class="detail-sub">E-Ticaret Tool · EasyPost Entegrasyonu</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Akış</div>
+      <p>1. Satıcı "Kargo Oluştur" der<br>2. EasyPost Shipment API → etiket + takip numarası<br>3. Sipariş "shipped" olarak güncellenir<br>4. Alıcıya SQS → SES ile bildirim<br>5. EasyPost kargo durumu değişince webhook gelir<br>6. "delivered" → escrow release tetiklenir</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('easypost')">EasyPost</span>
+        <span class="conn-pill" onclick="showDetail('lambda-webhook')">Webhooks λ</span>
+        <span class="conn-pill" onclick="showDetail('sqs-finance')">SQS Finance</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card" id="detail-ecom-seller-tools">
+    <div class="detail-name">📊 Satıcı Araçları</div>
+    <div class="detail-sub">E-Ticaret Tool · Satıcı Dashboard</div>
+    <div class="detail-section">
+      <div class="detail-section-title">Ne yapar?</div>
+      <p>Satıcıların mağazalarını yönettiği merkez. Stripe Connect onboarding, satış istatistikleri, sipariş yönetimi, kargo oluşturma, gelir takibi.</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">API Endpoints</div>
+      <p><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">GET /api/seller/dashboard</code> → istatistikler<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">POST /api/seller/register</code> → satıcı kaydı<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">POST /api/seller/connect</code> → Stripe onboard<br><code style="font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;">POST /api/seller/shipments</code> → kargo oluştur</p>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Bağlantılar</div>
+      <div class="connects-to">
+        <span class="conn-pill" onclick="showDetail('stripe')">Stripe Connect</span>
+        <span class="conn-pill" onclick="showDetail('easypost')">EasyPost</span>
+        <span class="conn-pill" onclick="showDetail('rds')">RDS</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+</div><!-- /canvas-wrap -->
+
+<script>
+function showDetail(id) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.querySelectorAll('.detail-card').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+
+  const card = document.getElementById('detail-' + id);
+  if (card) card.classList.add('active');
+
+  document.querySelectorAll('.node').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + id + "'")) {
+      n.classList.add('selected');
+    }
+  });
+}
+
+function filterLayer(layer) {
+  document.querySelectorAll('.ltab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const layers = document.querySelectorAll('.layer');
+  if (layer === 'all') {
+    layers.forEach(l => l.classList.remove('dimmed'));
+    return;
+  }
+  layers.forEach(l => {
+    if (l.getAttribute('data-layer') === layer) {
+      l.classList.remove('dimmed');
+    } else {
+      l.classList.add('dimmed');
+    }
+  });
+}
+</script>
+</body>
+</html>

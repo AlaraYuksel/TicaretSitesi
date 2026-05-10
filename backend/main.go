@@ -45,6 +45,12 @@ func main() {
 	// register/login işlemleri Cognito hosted UI'a bırakılır.
 	authHandler := handler.NewAuthHandler(store, cfg.JWTSecret)
 
+	// ── E-Ticaret Handler'ları ────────────────────────────────────────────────
+	productHandler := handler.NewProductHandler(store)
+	orderHandler := handler.NewOrderHandler(store)
+	sellerHandler := handler.NewSellerHandler(store)
+	webhookHandler := handler.NewWebhookHandler(store, "", "") // TODO: env'den stripe/easypost secret al
+
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
 	// 🔄 COGNITO_SWITCH: Lokal JWT auth.
 	// Cognito'ya geçildiğinde:
@@ -73,6 +79,28 @@ func main() {
 	mux.Handle("PUT /api/sites/{id}/data", auth(http.HandlerFunc(siteHandler.SaveData)))
 	mux.Handle("POST /api/sites/{id}/publish", auth(http.HandlerFunc(siteHandler.Publish)))
 	mux.Handle("DELETE /api/sites/{id}", auth(http.HandlerFunc(siteHandler.Delete)))
+
+	// ── 🛒 E-Ticaret: Ürün API ───────────────────────────────────────────────
+	mux.HandleFunc("GET /api/products", productHandler.List)                             // Herkes görebilir
+	mux.HandleFunc("GET /api/products/{id}", productHandler.Get)                         // Herkes görebilir
+	mux.Handle("POST /api/products", auth(http.HandlerFunc(productHandler.Create)))      // Satıcı
+	mux.Handle("PUT /api/products/{id}", auth(http.HandlerFunc(productHandler.Update)))  // Satıcı
+	mux.Handle("DELETE /api/products/{id}", auth(http.HandlerFunc(productHandler.Delete))) // Satıcı
+
+	// ── 🛒 E-Ticaret: Sipariş API ────────────────────────────────────────────
+	mux.Handle("GET /api/orders", auth(http.HandlerFunc(orderHandler.List)))
+	mux.Handle("POST /api/orders", auth(http.HandlerFunc(orderHandler.Create)))
+	mux.Handle("GET /api/orders/{id}", auth(http.HandlerFunc(orderHandler.Get)))
+
+	// ── 🛒 E-Ticaret: Satıcı API ─────────────────────────────────────────────
+	mux.Handle("GET /api/seller/dashboard", auth(http.HandlerFunc(sellerHandler.Dashboard)))
+	mux.Handle("POST /api/seller/register", auth(http.HandlerFunc(sellerHandler.Register)))
+	mux.Handle("POST /api/seller/connect", auth(http.HandlerFunc(sellerHandler.StripeConnect)))
+	mux.Handle("POST /api/seller/shipments", auth(http.HandlerFunc(sellerHandler.CreateShipment)))
+
+	// ── 🔗 Webhooks (auth yok — dış servislerden gelir, HMAC ile doğrulanır) ─
+	mux.HandleFunc("POST /api/webhooks/easypost", webhookHandler.EasyPost)
+	mux.HandleFunc("POST /api/webhooks/stripe", webhookHandler.Stripe)
 
 	// ── Domain Serving ───────────────────────────────────────────────────────
 	// Tüm diğer istekler → Host header'dan subdomain/custom domain bul → site serve et
