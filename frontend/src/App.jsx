@@ -8,6 +8,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import OrderTracker from './pages/OrderTracker';
+import Marketplace from './pages/Marketplace';
 
 // ─── Route Guard: Giriş yapmamış kullanıcıyı Auth'a yönlendir ───────────────
 function ProtectedRoute({ children }) {
@@ -59,6 +60,9 @@ function App() {
         
         {/* Sipariş takip sayfası — auth gerektirmez, website builder'dan bağımsız */}
         <Route path="/track" element={<OrderTracker />} />
+        
+        {/* Marketplace sayfası — auth gerektirmez */}
+        <Route path="/marketplace" element={<Marketplace />} />
         
         {/* Dashboard sayfası — auth gerekli */}
         <Route path="/dashboard" element={

@@ -848,7 +848,7 @@ export default function EditorInspector() {
         <ShadowSection id={selected.id} shadow={selected.shadow} updateShadow={store.updateShadow} />
 
         {/* Background (box/section/hero) */}
-        {('bg' in p || 'gradientEnabled' in p) && !['navbar', 'sidebar', 'card', 'testimonial', 'form', 'accordion', 'tabs'].includes(selected.type) && (
+        {('bg' in p || 'gradientEnabled' in p) && !['navbar', 'sidebar', 'card', 'testimonial', 'form', 'accordion', 'tabs', 'productCard', 'productGrid', 'priceTag', 'storeHeader', 'cartWidget', 'checkoutForm', 'miniCart', 'cartButton'].includes(selected.type) && (
           <BackgroundSection p={p} update={update} />
         )}
 
@@ -876,6 +876,15 @@ export default function EditorInspector() {
         {selected.type === 'cartPage'          && <CartPageInspector p={p} update={update} />}
         {selected.type === 'productDetailHero' && <ProductDetailHeroInspector p={p} update={update} />}
         {selected.type === 'categoryGrid'      && <CategoryGridInspector p={p} update={update} />}
+        {/* ── E-Ticaret inspector'ları ──────────────────────────────── */}
+        {selected.type === 'productCard'   && <ProductCardInspector p={p} update={update} />}
+        {selected.type === 'productGrid'   && <ProductGridInspector p={p} update={update} />}
+        {selected.type === 'priceTag'      && <PriceTagInspector p={p} update={update} />}
+        {selected.type === 'storeHeader'   && <StoreHeaderInspector p={p} update={update} />}
+        {selected.type === 'cartButton'    && <CartButtonInspector p={p} update={update} />}
+        {selected.type === 'cartWidget'    && <CartWidgetInspector p={p} update={update} />}
+        {selected.type === 'checkoutForm'  && <CheckoutFormInspector p={p} update={update} />}
+        {selected.type === 'miniCart'      && <MiniCartInspector p={p} update={update} />}
 
 
         {/* ── Existing element inspectors ─────────────────────────────── */}
@@ -1830,6 +1839,252 @@ function CategoryGridInspector({ p, update }) {
         </div>
       ))}
       <button onClick={() => update('categories', [...categories, { id: `cat${Date.now()}`, label: 'Yeni Kategori', count: '0 pieces', imageSrc: '' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Kategori Ekle</button>
+    </>
+  );
+}
+
+// ─── PRODUCT CARD INSPECTOR ───────────────────────────────────────────────────
+function ProductCardInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Ürün Kartı" />
+      <Row label="Ürün Adı"><input type="text" value={p.title ?? ''} onChange={e => update('title', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Açıklama"><textarea value={p.description ?? ''} rows={2} onChange={e => update('description', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} /></Row>
+      <Row label="Görsel URL"><input type="text" value={p.imageSrc ?? ''} onChange={e => update('imageSrc', e.target.value)} placeholder="https://..." style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Fiyat"><NumInput value={p.price ?? 0} onChange={v => update('price', v)} min={0} step={0.01} /></Row>
+        <Row label="Eski Fiyat"><NumInput value={p.comparePrice ?? 0} onChange={v => update('comparePrice', v)} min={0} step={0.01} /></Row>
+        <Row label="Para Birimi"><input type="text" value={p.currency ?? '₺'} onChange={e => update('currency', e.target.value)} style={inputStyle} /></Row>
+        <Row label="CTA Metin"><input type="text" value={p.ctaText ?? 'Sepete Ekle'} onChange={e => update('ctaText', e.target.value)} style={inputStyle} /></Row>
+        <Row label={`Puan: ${p.rating ?? 4.5}`}><NumInput value={p.rating ?? 4.5} onChange={v => update('rating', v)} min={0} max={5} step={0.5} /></Row>
+        <Row label="Yorum Sayısı"><NumInput value={p.reviewCount ?? 0} onChange={v => update('reviewCount', v)} min={0} /></Row>
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 16} onChange={v => update('borderRadius', v)} min={0} max={40} /></Row>
+      </div>
+      <SectionDivider title="Rozet / İndirim" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Rozet Göster</span>
+        <button onClick={() => update('showBadge', !p.showBadge)}
+          style={{ background: p.showBadge ? '#22c55e' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showBadge ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showBadge ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      {p.showBadge && (
+        <Row label="Rozet Metni"><input type="text" value={p.badge ?? ''} onChange={e => update('badge', e.target.value)} style={inputStyle} placeholder="İNDİRİM, YENİ, vb." /></Row>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Eski Fiyat Göster</span>
+        <button onClick={() => update('showComparePrice', !p.showComparePrice)}
+          style={{ background: p.showComparePrice ? '#22c55e' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showComparePrice ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showComparePrice ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Puan Göster</span>
+        <button onClick={() => update('showRating', !p.showRating)}
+          style={{ background: p.showRating ? '#22c55e' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showRating ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showRating ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <SectionDivider title="Renkler" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#1a1a1a'} onChange={v => update('bg', v)} />
+        <ColorRow label="Başlık" value={p.titleColor ?? '#e5e2e1'} onChange={v => update('titleColor', v)} />
+        <ColorRow label="Fiyat" value={p.priceColor ?? '#22c55e'} onChange={v => update('priceColor', v)} />
+        <ColorRow label="CTA BG" value={p.ctaBg ?? '#22c55e'} onChange={v => update('ctaBg', v)} />
+        <ColorRow label="Rozet BG" value={p.badgeBg ?? '#ef4444'} onChange={v => update('badgeBg', v)} />
+      </div>
+    </>
+  );
+}
+
+// ─── PRODUCT GRID INSPECTOR ───────────────────────────────────────────────────
+function ProductGridInspector({ p, update }) {
+  const products = p.products ?? [];
+  return (
+    <>
+      <SectionDivider title="Ürün Grid" />
+      <Row label="Bölüm Başlığı"><input type="text" value={p.sectionTitle ?? ''} onChange={e => update('sectionTitle', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Sütun"><NumInput value={p.columns ?? 3} onChange={v => update('columns', v)} min={1} max={4} /></Row>
+        <Row label="Gap"><NumInput value={p.gap ?? 20} onChange={v => update('gap', v)} min={0} max={60} /></Row>
+        <Row label="Padding"><NumInput value={p.padding ?? 24} onChange={v => update('padding', v)} min={0} max={60} /></Row>
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 16} onChange={v => update('borderRadius', v)} min={0} max={40} /></Row>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#0e0e0e'} onChange={v => update('bg', v)} />
+        <ColorRow label="Kart BG" value={p.cardBg ?? '#1a1a1a'} onChange={v => update('cardBg', v)} />
+        <ColorRow label="Fiyat" value={p.priceColor ?? '#22c55e'} onChange={v => update('priceColor', v)} />
+        <ColorRow label="Başlık" value={p.titleColor ?? '#e5e2e1'} onChange={v => update('titleColor', v)} />
+        <ColorRow label="Başlık Renk" value={p.sectionTitleColor ?? '#e5e2e1'} onChange={v => update('sectionTitleColor', v)} />
+        <Row label="Başlık Boy"><NumInput value={p.sectionTitleSize ?? 28} onChange={v => update('sectionTitleSize', v)} min={14} max={60} /></Row>
+      </div>
+      <SectionDivider title={`Ürünler (${products.length})`} />
+      {products.map((prod, i) => (
+        <div key={prod.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px', marginBottom: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 4 }}>
+            <input value={prod.title} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Ürün adı" />
+            <NumInput value={prod.price ?? 0} onChange={v => update('products', products.map((x, j) => j === i ? { ...x, price: v } : x))} min={0} step={0.01} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 4 }}>
+            <input value={prod.badge ?? ''} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, badge: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Rozet" />
+            <NumInput value={prod.rating ?? 4} onChange={v => update('products', products.map((x, j) => j === i ? { ...x, rating: v } : x))} min={0} max={5} step={0.1} />
+          </div>
+          <input value={prod.image ?? ''} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, image: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Görsel URL" />
+          <button onClick={() => update('products', products.filter((_, j) => j !== i))} style={{ marginTop: 5, background: 'rgba(229,62,62,0.08)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '3px 10px', fontSize: 10 }}>Sil</button>
+        </div>
+      ))}
+      <button onClick={() => update('products', [...products, { id: `p${Date.now()}`, title: 'Yeni Ürün', price: 99.99, image: '', rating: 4.0, badge: '' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Ürün Ekle</button>
+    </>
+  );
+}
+
+// ─── PRICE TAG INSPECTOR ──────────────────────────────────────────────────────
+function PriceTagInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Fiyat Etiketi" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Row label="Fiyat"><NumInput value={p.price ?? 299.99} onChange={v => update('price', v)} min={0} step={0.01} /></Row>
+        <Row label="Eski Fiyat"><NumInput value={p.comparePrice ?? 0} onChange={v => update('comparePrice', v)} min={0} step={0.01} /></Row>
+        <Row label="Para Birimi"><input type="text" value={p.currency ?? '₺'} onChange={e => update('currency', e.target.value)} style={inputStyle} /></Row>
+        <Row label="Fiyat Boy"><NumInput value={p.priceFontSize ?? 32} onChange={v => update('priceFontSize', v)} min={12} max={80} /></Row>
+        <ColorRow label="Fiyat Renk" value={p.priceColor ?? '#22c55e'} onChange={v => update('priceColor', v)} />
+        <ColorRow label="Eski Fiyat" value={p.comparePriceColor ?? '#666'} onChange={v => update('comparePriceColor', v)} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>İndirim Göster</span>
+        <button onClick={() => update('showDiscount', !p.showDiscount)}
+          style={{ background: p.showDiscount ? '#22c55e' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showDiscount ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showDiscount ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <Row label="Hizalama">
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['left', 'center'].map(a => (
+            <button key={a} onClick={() => update('align', a)} style={{ flex: 1, padding: '5px 0', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 9, fontWeight: 700, background: (p.align ?? 'left') === a ? '#4b8eff' : '#1e1e1e', color: (p.align ?? 'left') === a ? '#fff' : '#666' }}>{a}</button>
+          ))}
+        </div>
+      </Row>
+    </>
+  );
+}
+
+// ─── STORE HEADER INSPECTOR ───────────────────────────────────────────────────
+function StoreHeaderInspector({ p, update }) {
+  const cats = p.categories ?? [];
+  return (
+    <>
+      <SectionDivider title="Mağaza Header" />
+      <Row label="Mağaza Adı"><input type="text" value={p.storeName ?? ''} onChange={e => update('storeName', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Açıklama"><input type="text" value={p.storeDesc ?? ''} onChange={e => update('storeDesc', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Logo URL"><input type="text" value={p.logoSrc ?? ''} onChange={e => update('logoSrc', e.target.value)} placeholder="https://..." style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Ad Boyutu"><NumInput value={p.nameFontSize ?? 32} onChange={v => update('nameFontSize', v)} min={16} max={60} /></Row>
+        <Row label="Padding"><NumInput value={p.padding ?? 40} onChange={v => update('padding', v)} min={0} max={100} /></Row>
+        <ColorRow label="Ad Renk" value={p.nameColor ?? '#e5e2e1'} onChange={v => update('nameColor', v)} />
+        <ColorRow label="Açıklama" value={p.descColor ?? '#9ca3af'} onChange={v => update('descColor', v)} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Arama Göster</span>
+        <button onClick={() => update('showSearch', p.showSearch === false)}
+          style={{ background: p.showSearch !== false ? '#4b8eff' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showSearch !== false ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showSearch !== false ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <SectionDivider title={`Kategoriler (${cats.length})`} />
+      {cats.map((cat, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+          <input value={cat} onChange={e => update('categories', cats.map((x, j) => j === i ? e.target.value : x))} style={{ ...inputStyle, flex: 1 }} />
+          <button onClick={() => update('categories', cats.filter((_, j) => j !== i))} style={{ background: 'rgba(229,62,62,0.1)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '0 8px' }}>✕</button>
+        </div>
+      ))}
+      <button onClick={() => update('categories', [...cats, 'Yeni'])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Kategori Ekle</button>
+    </>
+  );
+}
+
+// ─── CART BUTTON INSPECTOR ────────────────────────────────────────────────────
+function CartButtonInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Sepet Butonu" />
+      <Row label="Metin"><input type="text" value={p.text ?? '🛒 Sepete Ekle'} onChange={e => update('text', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#22c55e'} onChange={v => update('bg', v)} />
+        <ColorRow label="Metin Renk" value={p.color ?? '#fff'} onChange={v => update('color', v)} />
+        <Row label="Font Boy"><NumInput value={p.fontSize ?? 15} onChange={v => update('fontSize', v)} min={10} max={24} /></Row>
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 10} onChange={v => update('borderRadius', v)} min={0} max={40} /></Row>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Adet Göster</span>
+        <button onClick={() => update('showItemCount', !p.showItemCount)}
+          style={{ background: p.showItemCount ? '#22c55e' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showItemCount ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showItemCount ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─── CART WIDGET INSPECTOR ────────────────────────────────────────────────────
+function CartWidgetInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Sepet Widget" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#22c55e'} onChange={v => update('bg', v)} />
+        <ColorRow label="İkon Renk" value={p.color ?? '#fff'} onChange={v => update('color', v)} />
+        <Row label="İkon Boy"><NumInput value={p.iconSize ?? 24} onChange={v => update('iconSize', v)} min={16} max={48} /></Row>
+        <Row label="Boyut"><NumInput value={p.size ?? 56} onChange={v => update('size', v)} min={32} max={100} /></Row>
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 16} onChange={v => update('borderRadius', v)} min={0} max={50} /></Row>
+        <ColorRow label="Badge BG" value={p.badgeBg ?? '#ef4444'} onChange={v => update('badgeBg', v)} />
+      </div>
+      <Row label="Etiket"><input type="text" value={p.labelText ?? 'Sepet'} onChange={e => update('labelText', e.target.value)} style={inputStyle} /></Row>
+    </>
+  );
+}
+
+// ─── CHECKOUT FORM INSPECTOR ──────────────────────────────────────────────────
+function CheckoutFormInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Ödeme Formu" />
+      <Row label="Buton Metni"><input type="text" value={p.buttonText ?? 'Siparişi Tamamla'} onChange={e => update('buttonText', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#141414'} onChange={v => update('bg', v)} />
+        <ColorRow label="Kart BG" value={p.cardBg ?? '#1a1a1a'} onChange={v => update('cardBg', v)} />
+        <ColorRow label="Buton BG" value={p.buttonBg ?? '#22c55e'} onChange={v => update('buttonBg', v)} />
+        <ColorRow label="Vurgu" value={p.accentColor ?? '#22c55e'} onChange={v => update('accentColor', v)} />
+        <ColorRow label="Label" value={p.labelColor ?? '#888'} onChange={v => update('labelColor', v)} />
+        <ColorRow label="Input BG" value={p.inputBg ?? '#1e1e1e'} onChange={v => update('inputBg', v)} />
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 16} onChange={v => update('borderRadius', v)} min={0} max={40} /></Row>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Adımlar Göster</span>
+        <button onClick={() => update('showSteps', p.showSteps === false)}
+          style={{ background: p.showSteps !== false ? '#4b8eff' : '#1e1e1e', border: 'none', borderRadius: 20, padding: '3px 12px', color: p.showSteps !== false ? '#fff' : '#555', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+          {p.showSteps !== false ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─── MINI CART INSPECTOR ──────────────────────────────────────────────────────
+function MiniCartInspector({ p, update }) {
+  return (
+    <>
+      <SectionDivider title="Mini Sepet" />
+      <Row label="Başlık"><input type="text" value={p.titleText ?? 'Sepetim'} onChange={e => update('titleText', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Checkout Metin"><input type="text" value={p.checkoutText ?? 'Ödemeye Geç'} onChange={e => update('checkoutText', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Boş Metin"><input type="text" value={p.emptyText ?? 'Sepetiniz boş'} onChange={e => update('emptyText', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Para Birimi"><input type="text" value={p.currency ?? '₺'} onChange={e => update('currency', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#1a1a1a'} onChange={v => update('bg', v)} />
+        <ColorRow label="Header BG" value={p.headerBg ?? '#141414'} onChange={v => update('headerBg', v)} />
+        <ColorRow label="Checkout BG" value={p.checkoutBg ?? '#22c55e'} onChange={v => update('checkoutBg', v)} />
+        <ColorRow label="Başlık Renk" value={p.titleColor ?? '#e5e2e1'} onChange={v => update('titleColor', v)} />
+        <Row label="Genişlik"><NumInput value={p.width ?? 380} onChange={v => update('width', v)} min={200} max={600} /></Row>
+        <Row label="Radius"><NumInput value={p.borderRadius ?? 16} onChange={v => update('borderRadius', v)} min={0} max={40} /></Row>
+      </div>
     </>
   );
 }
