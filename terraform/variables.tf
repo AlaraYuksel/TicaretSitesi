@@ -107,17 +107,17 @@ variable "easypost_webhook_secret" {
   sensitive   = true
 }
 
-# ─── AI / Claude ─────────────────────────────────────────────────────────────
-variable "anthropic_api_key" {
-  description = "Anthropic Claude API anahtarı"
+# ─── AI / Gemini ────────────────────────────────────────────────────────────────────
+variable "gemini_api_key" {
+  description = "Google Gemini API anahtarı (AI Studio: aistudio.google.com/apikey)"
   type        = string
   sensitive   = true
 }
 
-variable "claude_model" {
-  description = "Kullanılacak Claude model ID"
+variable "gemini_model" {
+  description = "Kullanılacak Gemini model ID"
   type        = string
-  default     = "claude-sonnet-4-20250514"
+  default     = "gemini-2.5-pro"
 }
 
 # ─── JWT / Auth ──────────────────────────────────────────────────────────────

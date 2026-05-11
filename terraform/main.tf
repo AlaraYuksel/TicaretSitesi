@@ -7,7 +7,7 @@
 #   2. Compute    — Lambda (Go Runtime), API Gateway + Custom Domain
 #   3. Data       — RDS PostgreSQL (pgvector), DynamoDB, S3
 #   4. Async      — SQS kuyrukları (Finance, Publish, Notifications), EventBridge
-#   5. AI         — Claude API entegrasyonu Lambda'lar
+#   5. AI         — Gemini API entegrasyonu Lambda'lar
 #   6. Publish    — Publisher Lambda, Finance Worker Lambda, Polly TTS
 #   7. Domain     — Cloudflare DNS, ACM (eu-central-1)
 #
@@ -80,8 +80,8 @@ locals {
     DB_PASSWORD     = var.db_password
     DYNAMODB_TABLE  = module.data.dynamodb_table_name
     JWT_SECRET      = var.jwt_secret
-    ANTHROPIC_API_KEY = var.anthropic_api_key
-    CLAUDE_MODEL    = var.claude_model
+    GEMINI_API_KEY  = var.gemini_api_key
+    GEMINI_MODEL    = var.gemini_model
     S3_ASSETS_BUCKET    = module.data.s3_assets_bucket
     S3_PUBLISHED_BUCKET = module.data.s3_published_bucket
     DOMAIN_NAME         = var.domain_name
@@ -180,8 +180,8 @@ module "ai" {
   private_subnet_ids = module.networking.private_subnet_ids
 
   lambda_env_common   = local.lambda_env_common
-  anthropic_api_key   = var.anthropic_api_key
-  claude_model        = var.claude_model
+  gemini_api_key      = var.gemini_api_key
+  gemini_model        = var.gemini_model
   ses_sender_email    = var.ses_sender_email
 
   dynamodb_table_arn  = module.data.dynamodb_table_arn

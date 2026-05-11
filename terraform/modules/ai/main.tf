@@ -8,8 +8,8 @@ variable "aws_region"              { type = string }
 variable "vpc_id"                  { type = string }
 variable "private_subnet_ids"      { type = list(string) }
 variable "lambda_env_common"       { type = map(string) }
-variable "anthropic_api_key"       { type = string; sensitive = true }
-variable "claude_model"            { type = string }
+variable "gemini_api_key"          { type = string; sensitive = true }
+variable "gemini_model"            { type = string }
 variable "ses_sender_email"        { type = string }
 variable "dynamodb_table_arn"      { type = string }
 variable "dynamodb_table_name"     { type = string }
@@ -80,9 +80,9 @@ resource "aws_lambda_function" "chatbot" {
   vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
   environment {
     variables = merge(var.lambda_env_common, {
-      FUNCTION_NAME     = "ai-chatbot"
-      ANTHROPIC_API_KEY = var.anthropic_api_key
-      CLAUDE_MODEL      = var.claude_model
+      FUNCTION_NAME  = "ai-chatbot"
+      GEMINI_API_KEY = var.gemini_api_key
+      GEMINI_MODEL   = var.gemini_model
     })
   }
 }
@@ -101,9 +101,9 @@ resource "aws_lambda_function" "product_qa" {
   vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
   environment {
     variables = merge(var.lambda_env_common, {
-      FUNCTION_NAME     = "ai-product-qa"
-      ANTHROPIC_API_KEY = var.anthropic_api_key
-      CLAUDE_MODEL      = var.claude_model
+      FUNCTION_NAME  = "ai-product-qa"
+      GEMINI_API_KEY = var.gemini_api_key
+      GEMINI_MODEL   = var.gemini_model
     })
   }
 }
@@ -122,9 +122,9 @@ resource "aws_lambda_function" "vision" {
   vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
   environment {
     variables = merge(var.lambda_env_common, {
-      FUNCTION_NAME     = "ai-vision"
-      ANTHROPIC_API_KEY = var.anthropic_api_key
-      CLAUDE_MODEL      = var.claude_model
+      FUNCTION_NAME  = "ai-vision"
+      GEMINI_API_KEY = var.gemini_api_key
+      GEMINI_MODEL   = var.gemini_model
     })
   }
 }
@@ -143,9 +143,9 @@ resource "aws_lambda_function" "site_builder" {
   vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
   environment {
     variables = merge(var.lambda_env_common, {
-      FUNCTION_NAME     = "ai-site-builder"
-      ANTHROPIC_API_KEY = var.anthropic_api_key
-      CLAUDE_MODEL      = "claude-sonnet-4-20250514"
+      FUNCTION_NAME  = "ai-site-builder"
+      GEMINI_API_KEY = var.gemini_api_key
+      GEMINI_MODEL   = "gemini-2.5-pro"  # site-builder için sabit model
     })
   }
 }
