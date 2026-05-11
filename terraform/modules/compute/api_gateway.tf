@@ -203,3 +203,91 @@ output "lambda_security_group_id" { value = aws_security_group.lambda.id }
 output "api_gateway_id"            { value = aws_apigatewayv2_api.main.id }
 output "api_gateway_execution_arn" { value = aws_apigatewayv2_api.main.execution_arn }
 output "api_gateway_invoke_url"    { value = aws_apigatewayv2_stage.default.invoke_url }
+
+# Domain Router Lambda Function URL
+output "domain_router_function_url" {
+  value = aws_lambda_function_url.domain_router.function_url
+}
+
+# Domain Router URL domain (Cloudflare CNAME için)
+output "domain_router_url_domain" {
+  value = replace(replace(aws_lambda_function_url.domain_router.function_url, "https://", ""), "/", "")
+}
+
+# API Gateway Custom Domain hedefi
+output "api_gw_custom_domain_target" {
+  value = length(aws_apigatewayv2_domain_name.platform) > 0 ? aws_apigatewayv2_domain_name.platform[0].domain_name_configuration[0].target_domain_name : ""
+}
+
+# ACM doğrulama kayıtları (Cloudflare'e eklenecek)
+output "acm_cert_validation_records" {
+  value = var.domain_name != "" ? [for dvo in aws_acm_certificate.platform[0].domain_validation_options : {
+    name   = dvo.resource_record_name
+    record = dvo.resource_record_value
+    type   = dvo.resource_record_type
+  }] : []
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ACM Sertifika (eu-central-1 — CloudFront gerektirmediği için us-east-1 GEREKMEZ)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "aws_acm_certificate" "platform" {
+  count             = var.domain_name != "" ? 1 : 0
+  domain_name       = var.domain_name
+  subject_alternative_names = ["www.${var.domain_name}"]
+  validation_method = "DNS"
+
+  lifecycle { create_before_destroy = true }
+  tags = { Name = "${var.name_prefix}-platform-ssl" }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API Gateway Custom Domain (iluvcode.art → API Gateway)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "aws_apigatewayv2_domain_name" "platform" {
+  count       = var.domain_name != "" ? 1 : 0
+  domain_name = var.domain_name
+
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate.platform[0].arn
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+
+  tags = { Name = "${var.name_prefix}-apigw-domain" }
+}
+
+resource "aws_apigatewayv2_api_mapping" "platform" {
+  count       = var.domain_name != "" ? 1 : 0
+  api_id      = aws_apigatewayv2_api.main.id
+  domain_name = aws_apigatewayv2_domain_name.platform[0].id
+  stage       = aws_apigatewayv2_stage.default.id
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Static Serve — SPA catch-all route ($default)
+# /api/* dışındaki tüm istekler → S3 React bucket'tan serve
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "aws_apigatewayv2_integration" "static_serve" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.static_serve.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# $default route: API route'larıyla eşleşmeyen tüm istekleri yakalar
+resource "aws_apigatewayv2_route" "spa_fallback" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.static_serve.id}"
+}
+
+resource "aws_lambda_permission" "apigw_static_serve" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.static_serve.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}

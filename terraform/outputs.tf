@@ -2,19 +2,24 @@
 # Terraform Çıktıları — Deploy sonrası önemli bilgiler
 # ═══════════════════════════════════════════════════════════════════════════════
 
-output "cloudfront_domain" {
-  description = "Platform CloudFront dağıtım domain'i"
-  value       = module.edge.cloudfront_domain
+output "cloudflare_nameservers" {
+  description = "Registrar'da bu nameserver'lara geçin (iluvcode.art)"
+  value       = module.edge.nameservers
 }
 
-output "cloudfront_published_domain" {
-  description = "Yayınlanan satıcı siteleri CloudFront domain'i"
-  value       = module.edge.cloudfront_published_domain
+output "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID"
+  value       = module.edge.cloudflare_zone_id
 }
 
 output "api_gateway_url" {
   description = "API Gateway invoke URL"
   value       = module.compute.api_gateway_invoke_url
+}
+
+output "domain_router_url" {
+  description = "Published Sites Lambda Function URL"
+  value       = module.compute.domain_router_function_url
 }
 
 output "rds_endpoint" {
@@ -58,24 +63,27 @@ output "deployment_summary" {
   value       = <<-EOT
     
     ╔══════════════════════════════════════════════════════════════╗
-    ║           MARKETPLACE + AI — DEPLOYMENT ÖZETİ               ║
+    ║     MARKETPLACE + AI — DEPLOYMENT ÖZETİ (Cloudflare)       ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  Platform URL  : https://${var.domain_name}                  ║
-    ║  API Gateway   : ${module.compute.api_gateway_invoke_url}    ║
-    ║  CDN (Platform): ${module.edge.cloudfront_domain}            ║
-    ║  CDN (Sites)   : ${module.edge.cloudfront_published_domain}  ║
+    ║  Platform URL   : https://${var.domain_name}                 ║
+    ║  Published Sites: https://*.${var.domain_name}               ║
+    ║  API Gateway    : ${module.compute.api_gateway_invoke_url}   ║
     ║                                                              ║
-    ║  RDS Endpoint  : (sensitive — terraform output rds_endpoint) ║
-    ║  S3 React      : ${module.data.s3_react_bucket}              ║
-    ║  S3 Assets     : ${module.data.s3_assets_bucket}             ║
-    ║  S3 Published  : ${module.data.s3_published_bucket}          ║
+    ║  ⚡ Cloudflare Nameservers:                                  ║
+    ║  ${join("\n    ║  ", module.edge.nameservers)}                ║
     ║                                                              ║
-    ║  SQS Finance   : ✅ aktif                                   ║
-    ║  SQS Publish   : ✅ aktif                                   ║
-    ║  SQS Notif     : ✅ aktif                                   ║
-    ║  EventBridge   : ✅ aktif                                   ║
-    ║  DynamoDB      : ✅ aktif                                   ║
+    ║  S3 React       : ${module.data.s3_react_bucket}             ║
+    ║  S3 Assets      : ${module.data.s3_assets_bucket}            ║
+    ║  S3 Published   : ${module.data.s3_published_bucket}         ║
+    ║                                                              ║
+    ║  SQS Finance    : ✅ aktif                                   ║
+    ║  SQS Publish    : ✅ aktif                                   ║
+    ║  SQS Notif      : ✅ aktif                                   ║
+    ║  EventBridge    : ✅ aktif                                    ║
+    ║  DynamoDB       : ✅ aktif                                    ║
+    ║                                                              ║
+    ║  📋 YAPILACAK: Registrar'da nameserver'ları güncelleyin      ║
     ║                                                              ║
     ╚══════════════════════════════════════════════════════════════╝
   EOT

@@ -157,3 +157,63 @@ resource "aws_lambda_event_source_mapping" "publish_to_publisher" {
   batch_size       = 1
   enabled          = true
 }
+
+# ── Domain Router λ ─────────────────────────────────────────────────────────
+# *.iluvcode.art isteklerini karşılar — Host header'dan subdomain parse eder
+# S3 Published Sites bucket'ından ilgili sitenin dosyalarını döndürür
+resource "aws_lambda_function" "domain_router" {
+  function_name    = "${var.name_prefix}-domain-router"
+  role             = local.common_lambda.role
+  handler          = local.common_lambda.handler
+  runtime          = local.common_lambda.runtime
+  architectures    = local.common_lambda.architectures
+  timeout          = 10
+  memory_size      = 128
+  filename         = local.common_lambda.filename
+  source_code_hash = local.common_lambda.hash
+  # VPC gerekmez — sadece S3'e erişir (public endpoint)
+  environment {
+    variables = {
+      FUNCTION_NAME       = "domain-router"
+      S3_PUBLISHED_BUCKET = var.s3_published_bucket
+      DOMAIN_NAME         = var.domain_name
+      ENVIRONMENT         = lookup(var.lambda_env_common, "ENVIRONMENT", "dev")
+    }
+  }
+}
+
+# Lambda Function URL — CloudFront yerine doğrudan erişim noktası
+resource "aws_lambda_function_url" "domain_router" {
+  function_name      = aws_lambda_function.domain_router.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "HEAD"]
+    max_age       = 3600
+  }
+}
+
+# ── Static Serve λ ──────────────────────────────────────────────────────────
+# iluvcode.art isteklerini karşılar — React SPA dosyalarını S3'ten serve eder
+# API Gateway $default route'undan tetiklenir
+resource "aws_lambda_function" "static_serve" {
+  function_name    = "${var.name_prefix}-static-serve"
+  role             = local.common_lambda.role
+  handler          = local.common_lambda.handler
+  runtime          = local.common_lambda.runtime
+  architectures    = local.common_lambda.architectures
+  timeout          = 10
+  memory_size      = 256
+  filename         = local.common_lambda.filename
+  source_code_hash = local.common_lambda.hash
+  # VPC gerekmez — sadece S3'e erişir
+  environment {
+    variables = {
+      FUNCTION_NAME    = "static-serve"
+      S3_REACT_BUCKET  = var.s3_react_bucket
+      S3_ASSETS_BUCKET = var.s3_assets_bucket
+      ENVIRONMENT      = lookup(var.lambda_env_common, "ENVIRONMENT", "dev")
+    }
+  }
+}

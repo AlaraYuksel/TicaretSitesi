@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Terraform Değişkenleri — Marketplace + AI AWS Mimarisi
+# Terraform Değişkenleri — Marketplace + AI (AWS + Cloudflare)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ─── Genel ────────────────────────────────────────────────────────────────────
@@ -38,10 +38,16 @@ variable "domain_name" {
   type        = string
 }
 
-variable "route53_zone_id" {
-  description = "Route 53 Hosted Zone ID (domain yönetimi)"
+# ─── Cloudflare (CloudFront yerine) ──────────────────────────────────────────
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token (Zone:Edit, DNS:Edit izinleri)"
   type        = string
-  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare Account ID (Dashboard → Overview → sağ altta)"
+  type        = string
 }
 
 # ─── RDS PostgreSQL ──────────────────────────────────────────────────────────

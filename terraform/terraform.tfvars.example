@@ -1,45 +1,35 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Terraform Değişken Değerleri — ÖRNEK
-# Bu dosyayı terraform.tfvars olarak kopyalayın ve doldurun:
-#   cp terraform.tfvars.example terraform.tfvars
-# ⚠️  terraform.tfvars'ı GIT'e COMMIT ETMEYİN!
+# Terraform Değişkenleri — terraform.tfvars örneği
+# Bu dosyayı kopyalayıp terraform.tfvars olarak kaydedin
 # ═══════════════════════════════════════════════════════════════════════════════
 
-aws_region   = "eu-central-1"
+# ─── Genel ────────────────────────────────────────────────────────────────────
 project_name = "marketplace"
 environment  = "dev"
+aws_region   = "eu-central-1"
 
-# Domain
-domain_name    = "iluvcode.art"
-route53_zone_id = ""
+# ─── Domain ───────────────────────────────────────────────────────────────────
+domain_name = "iluvcode.art"
 
-# RDS
-db_username       = "platform_admin"
-db_password       = "BURAYA_GÜÇLÜ_BİR_ŞİFRE_YAZ"
-db_name           = "platform_prod"
+# ─── Cloudflare (CloudFront yerine) ──────────────────────────────────────────
+# Dashboard → Overview → sağ alt köşede Account ID
+cloudflare_account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+# API Tokens → Create Token → Edit zone DNS + Zone Settings
+cloudflare_api_token  = "YOUR_CLOUDFLARE_API_TOKEN"
+
+# ─── Veritabanı ──────────────────────────────────────────────────────────────
+db_password       = "YOUR_SECURE_PASSWORD_HERE"
 db_instance_class = "db.t3.micro"
 
-# Stripe
-stripe_secret_key        = "sk_test_..."
-stripe_webhook_secret    = "whsec_..."
-stripe_connect_client_id = "ca_..."
+# ─── Ödeme ───────────────────────────────────────────────────────────────────
+stripe_secret_key     = "sk_test_..."
+stripe_webhook_secret = "whsec_..."
+easypost_api_key      = "EZTK..."
+easypost_webhook_secret = "..."
 
-# EasyPost
-easypost_api_key        = "EZTK..."
-easypost_webhook_secret = ""
-
-# AI — Claude
+# ─── AI ──────────────────────────────────────────────────────────────────────
 anthropic_api_key = "sk-ant-..."
 claude_model      = "claude-sonnet-4-20250514"
 
-# Auth
-jwt_secret = "en-az-32-karakter-uzun-bir-gizli-anahtar"
-
-# SES
-ses_sender_email = "noreply@iluvcode.art"
-
-# Etiketler
-tags = {
-  Owner   = "Alara"
-  Project = "Marketplace"
-}
+# ─── Auth ────────────────────────────────────────────────────────────────────
+jwt_secret = "YOUR_JWT_SECRET_MIN_32_CHARS_HERE!!"

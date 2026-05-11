@@ -1,294 +1,165 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# EDGE MODÜLÜ — CloudFront CDN, WAF, ACM SSL, Route 53
-# Mimari Diyagram: "Edge Katmanı" + "Domain & Sertifika"
+# EDGE MODÜLÜ — Cloudflare DNS + CDN + SSL + WAF (Free Plan)
+# CloudFront KALDIRILDI — Cloudflare ile değiştirildi
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Mimari:
+#   iluvcode.art      → API Gateway Custom Domain (React SPA + API)
+#   *.iluvcode.art    → Lambda Function URL (Published Sites)
+#   Universal SSL     → *.iluvcode.art otomatik HTTPS ($0)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 terraform {
   required_providers {
+    cloudflare = {
+      source = "cloudflare/cloudflare"
+    }
     aws = {
-      source                = "hashicorp/aws"
-      configuration_aliases = [aws.us_east_1]
+      source = "hashicorp/aws"
     }
   }
 }
 
-variable "name_prefix"                 { type = string }
-variable "domain_name"                 { type = string }
-variable "route53_zone_id"             { type = string }
-variable "s3_react_bucket_domain"      { type = string }
-variable "s3_react_bucket_arn"         { type = string }
-variable "s3_assets_bucket_domain"     { type = string }
-variable "s3_published_bucket_domain"  { type = string }
-variable "s3_published_bucket_arn"     { type = string }
-variable "api_gateway_invoke_url"      { type = string }
+# ─── Değişkenler ──────────────────────────────────────────────────────────────
+variable "name_prefix"            { type = string }
+variable "domain_name"            { type = string }
+variable "cloudflare_account_id"  { type = string }
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ACM — SSL Sertifikaları (us-east-1 zorunlu — CloudFront gereksinimi)
-# ═══════════════════════════════════════════════════════════════════════════════
+# API Gateway custom domain hedefi (xxx.execute-api.eu-central-1.amazonaws.com)
+variable "api_gw_custom_domain_target" { type = string }
 
-resource "aws_acm_certificate" "main" {
-  provider          = aws.us_east_1
-  domain_name       = var.domain_name
-  subject_alternative_names = ["*.${var.domain_name}"]
-  validation_method = "DNS"
+# Lambda Function URL domain (xxx.lambda-url.eu-central-1.on.aws)
+variable "domain_router_url_domain" { type = string }
 
-  lifecycle { create_before_destroy = true }
-  tags = { Name = "${var.name_prefix}-ssl" }
+# ACM sertifika doğrulama bilgileri
+variable "acm_cert_validation_records" {
+  type = list(object({
+    name   = string
+    record = string
+    type   = string
+  }))
+  default = []
 }
 
-# DNS doğrulama — Route 53 zone varsa otomatik
-resource "aws_route53_record" "cert_validation" {
-  for_each = var.route53_zone_id != "" ? {
-    for dvo in aws_acm_certificate.main.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  } : {}
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cloudflare Zone
+# ═══════════════════════════════════════════════════════════════════════════════
 
-  zone_id = var.route53_zone_id
+resource "cloudflare_zone" "main" {
+  account_id = var.cloudflare_account_id
+  zone       = var.domain_name
+  plan       = "free"
+}
+
+# SSL: Full — Cloudflare ↔ Origin arası HTTPS (Lambda URL + API GW destekler)
+resource "cloudflare_zone_settings_override" "main" {
+  zone_id = cloudflare_zone.main.id
+  settings {
+    ssl              = "full"
+    always_use_https = "on"
+    min_tls_version  = "1.2"
+    browser_cache_ttl = 14400  # 4 saat
+    security_level   = "medium"
+  }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DNS Kayıtları
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Platform ana domain → API Gateway Custom Domain
+# iluvcode.art → API GW (hem /api/* hem SPA serve eder)
+resource "cloudflare_record" "platform" {
+  zone_id = cloudflare_zone.main.id
+  name    = "@"
+  content = var.api_gw_custom_domain_target
+  type    = "CNAME"
+  proxied = true  # Cloudflare CDN + SSL aktif
+  comment = "Platform - API Gateway Custom Domain"
+}
+
+resource "cloudflare_record" "platform_www" {
+  zone_id = cloudflare_zone.main.id
+  name    = "www"
+  content = var.api_gw_custom_domain_target
+  type    = "CNAME"
+  proxied = true
+  comment = "Platform WWW"
+}
+
+# Wildcard → Lambda Function URL (Published Sites)
+# ahmet.iluvcode.art → Domain Router Lambda
+resource "cloudflare_record" "wildcard_sites" {
+  zone_id = cloudflare_zone.main.id
+  name    = "*"
+  content = var.domain_router_url_domain
+  type    = "CNAME"
+  proxied = true  # Cloudflare CDN + Universal SSL
+  comment = "Published Sites - Domain Router Lambda"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ACM Sertifika DNS Doğrulama (Cloudflare üzerinden)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "cloudflare_record" "acm_validation" {
+  for_each = { for r in var.acm_cert_validation_records : r.name => r }
+
+  zone_id = cloudflare_zone.main.id
   name    = each.value.name
+  content = each.value.record
   type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
-
-  allow_overwrite = true
-}
-
-resource "aws_acm_certificate_validation" "main" {
-  count    = var.route53_zone_id != "" ? 1 : 0
-  provider = aws.us_east_1
-
-  certificate_arn         = aws_acm_certificate.main.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+  proxied = false  # Doğrulama kayıtları proxy'lenmemeli
+  comment = "ACM SSL Doğrulama"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CloudFront — Platform CDN (React + API + Assets)
+# Cloudflare Cache Rules (Opsiyonel — statik dosyalar için)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-resource "aws_cloudfront_origin_access_identity" "react" {
-  comment = "${var.name_prefix} React S3 OAI"
-}
+resource "cloudflare_ruleset" "cache_rules" {
+  zone_id     = cloudflare_zone.main.id
+  name        = "Cache Rules"
+  description = "Statik dosya cache kuralları"
+  kind        = "zone"
+  phase       = "http_request_cache_settings"
 
-resource "aws_cloudfront_distribution" "platform" {
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
-  comment             = "${var.name_prefix} Platform CDN"
-  price_class         = "PriceClass_100"  # NA + EU (Frankfurt dahil)
-  aliases             = var.route53_zone_id != "" ? [var.domain_name, "www.${var.domain_name}"] : []
-
-  # ── Origin 1: S3 React Build ────────────────────────────────────────────
-  origin {
-    domain_name = var.s3_react_bucket_domain
-    origin_id   = "s3-react"
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.react.cloudfront_access_identity_path
+  # JS/CSS dosyaları: 7 gün cache
+  rules {
+    action = "set_cache_settings"
+    action_parameters {
+      cache = true
+      browser_ttl {
+        mode    = "override_origin"
+        default = 604800  # 7 gün
+      }
+      edge_ttl {
+        mode    = "override_origin"
+        default = 604800
+      }
     }
+    expression  = "(http.request.uri.path matches \"\\.(js|css|woff2|woff|ttf|ico|svg)$\")"
+    description = "Cache static assets"
+    enabled     = true
   }
 
-  # ── Origin 2: API Gateway ──────────────────────────────────────────────
-  origin {
-    domain_name = replace(var.api_gateway_invoke_url, "https://", "")
-    origin_id   = "api-gateway"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+  # Görseller: 30 gün cache
+  rules {
+    action = "set_cache_settings"
+    action_parameters {
+      cache = true
+      browser_ttl {
+        mode    = "override_origin"
+        default = 2592000  # 30 gün
+      }
+      edge_ttl {
+        mode    = "override_origin"
+        default = 2592000
+      }
     }
-  }
-
-  # ── Origin 3: S3 Assets ────────────────────────────────────────────────
-  origin {
-    domain_name = var.s3_assets_bucket_domain
-    origin_id   = "s3-assets"
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.react.cloudfront_access_identity_path
-    }
-  }
-
-  # ── Default: React SPA ─────────────────────────────────────────────────
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-react"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
-  }
-
-  # ── /api/* → API Gateway ───────────────────────────────────────────────
-  ordered_cache_behavior {
-    path_pattern           = "/api/*"
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "api-gateway"
-    viewer_protocol_policy = "redirect-to-https"
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization", "Content-Type", "Origin"]
-      cookies { forward = "all" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  # ── /assets/* → S3 User Assets ────────────────────────────────────────
-  ordered_cache_behavior {
-    path_pattern           = "/assets/*"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-assets"
-    viewer_protocol_policy = "redirect-to-https"
-
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-
-    min_ttl     = 86400
-    default_ttl = 604800   # 7 gün
-    max_ttl     = 2592000  # 30 gün
-  }
-
-  # SPA: 404 → index.html
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = var.route53_zone_id != "" ? aws_acm_certificate.main.arn : null
-    cloudfront_default_certificate = var.route53_zone_id == ""
-    ssl_support_method       = var.route53_zone_id != "" ? "sni-only" : null
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
-
-  tags = { Name = "${var.name_prefix}-platform-cdn" }
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CloudFront — Published Sites CDN (satıcı siteleri)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-resource "aws_cloudfront_origin_access_identity" "published" {
-  comment = "${var.name_prefix} Published Sites OAI"
-}
-
-resource "aws_cloudfront_distribution" "published" {
-  enabled         = true
-  is_ipv6_enabled = true
-  comment         = "${var.name_prefix} Published Sites CDN"
-  price_class     = "PriceClass_100"
-  aliases         = var.route53_zone_id != "" ? ["*.${var.domain_name}"] : []
-
-  origin {
-    domain_name = var.s3_published_bucket_domain
-    origin_id   = "s3-published"
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.published.cloudfront_access_identity_path
-    }
-  }
-
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-published"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      headers      = ["Host"]
-      cookies { forward = "none" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 3600
-    max_ttl     = 86400
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = var.route53_zone_id != "" ? aws_acm_certificate.main.arn : null
-    cloudfront_default_certificate = var.route53_zone_id == ""
-    ssl_support_method       = var.route53_zone_id != "" ? "sni-only" : null
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
-
-  tags = { Name = "${var.name_prefix}-published-cdn" }
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Route 53 DNS Kayıtları
-# ═══════════════════════════════════════════════════════════════════════════════
-
-resource "aws_route53_record" "platform" {
-  count   = var.route53_zone_id != "" ? 1 : 0
-  zone_id = var.route53_zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.platform.domain_name
-    zone_id                = aws_cloudfront_distribution.platform.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "platform_www" {
-  count   = var.route53_zone_id != "" ? 1 : 0
-  zone_id = var.route53_zone_id
-  name    = "www.${var.domain_name}"
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.platform.domain_name
-    zone_id                = aws_cloudfront_distribution.platform.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "wildcard" {
-  count   = var.route53_zone_id != "" ? 1 : 0
-  zone_id = var.route53_zone_id
-  name    = "*.${var.domain_name}"
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.published.domain_name
-    zone_id                = aws_cloudfront_distribution.published.hosted_zone_id
-    evaluate_target_health = false
+    expression  = "(http.request.uri.path matches \"\\.(jpg|jpeg|png|gif|webp|avif)$\")"
+    description = "Cache images"
+    enabled     = true
   }
 }
 
@@ -296,14 +167,11 @@ resource "aws_route53_record" "wildcard" {
 # OUTPUTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-output "cloudfront_domain" {
-  value = aws_cloudfront_distribution.platform.domain_name
+output "cloudflare_zone_id" {
+  value = cloudflare_zone.main.id
 }
 
-output "cloudfront_published_domain" {
-  value = aws_cloudfront_distribution.published.domain_name
-}
-
-output "acm_certificate_arn" {
-  value = aws_acm_certificate.main.arn
+output "nameservers" {
+  description = "Registrar'da bu nameserver'lara geçin"
+  value       = cloudflare_zone.main.name_servers
 }

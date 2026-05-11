@@ -27,6 +27,9 @@ variable "s3_assets_bucket_arn"     { type = string }
 variable "s3_published_bucket"      { type = string }
 variable "s3_published_bucket_arn"  { type = string }
 variable "rds_security_group_id"    { type = string }
+variable "s3_react_bucket"          { type = string; default = "" }
+variable "s3_react_bucket_arn"      { type = string; default = "" }
+variable "domain_name"              { type = string; default = "" }
 
 # ─── Lambda Security Group ───────────────────────────────────────────────────
 resource "aws_security_group" "lambda" {
@@ -71,11 +74,11 @@ resource "aws_iam_role_policy" "lambda_services" {
     Statement = [
       { Effect = "Allow", Action = ["sqs:SendMessage","sqs:ReceiveMessage","sqs:DeleteMessage","sqs:GetQueueAttributes"], Resource = [var.sqs_finance_queue_arn, var.sqs_publish_queue_arn, var.sqs_notifications_queue_arn] },
       { Effect = "Allow", Action = ["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:DeleteItem","dynamodb:Query","dynamodb:Scan"], Resource = [var.dynamodb_table_arn, "${var.dynamodb_table_arn}/index/*"] },
-      { Effect = "Allow", Action = ["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket"], Resource = [var.s3_assets_bucket_arn, "${var.s3_assets_bucket_arn}/*", var.s3_published_bucket_arn, "${var.s3_published_bucket_arn}/*"] },
+      { Effect = "Allow", Action = ["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket"], Resource = [var.s3_assets_bucket_arn, "${var.s3_assets_bucket_arn}/*", var.s3_published_bucket_arn, "${var.s3_published_bucket_arn}/*", var.s3_react_bucket_arn, "${var.s3_react_bucket_arn}/*"] },
       { Effect = "Allow", Action = ["events:PutEvents"], Resource = [var.eventbridge_bus_arn] },
       { Effect = "Allow", Action = ["ses:SendEmail","ses:SendRawEmail"], Resource = ["*"] },
-      { Effect = "Allow", Action = ["polly:SynthesizeSpeech"], Resource = ["*"] },
-      { Effect = "Allow", Action = ["cloudfront:CreateInvalidation"], Resource = ["*"] }
+      { Effect = "Allow", Action = ["polly:SynthesizeSpeech"], Resource = ["*"] }
+      # CloudFront kaldırıldı — cache purge artık Cloudflare API ile yapılır (Lambda env var'dan)
     ]
   })
 }

@@ -1,15 +1,20 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Marketplace + AI — AWS Terraform Ana Konfigürasyonu
+# Marketplace + AI — AWS + Cloudflare Terraform Ana Konfigürasyonu
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Mimari Katmanlar:
-#   1. Edge       — CloudFront CDN, WAF, ACM SSL
-#   2. Compute    — Lambda (Go Runtime), API Gateway
+#   1. Edge       — Cloudflare CDN + WAF + Universal SSL (CloudFront KALDIRILDI)
+#   2. Compute    — Lambda (Go Runtime), API Gateway + Custom Domain
 #   3. Data       — RDS PostgreSQL (pgvector), DynamoDB, S3
 #   4. Async      — SQS kuyrukları (Finance, Publish, Notifications), EventBridge
 #   5. AI         — Claude API entegrasyonu Lambda'lar
 #   6. Publish    — Publisher Lambda, Finance Worker Lambda, Polly TTS
-#   7. Domain     — Route 53, ACM
+#   7. Domain     — Cloudflare DNS, ACM (eu-central-1)
+#
+# Domain Akışı:
+#   iluvcode.art        → API Gateway → React SPA + API endpoints
+#   *.iluvcode.art      → Lambda Function URL → Published Sites (S3)
+#   ahmet.iluvcode.art  → Domain Router Lambda → S3/{ahmet}/index.html
 # ═══════════════════════════════════════════════════════════════════════════════
 
 terraform {
@@ -20,19 +25,13 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 
   # ── Remote State (S3 + DynamoDB Lock) ──────────────────────────────────────
-  # İlk çalıştırmada state bucket'ı manuel oluşturmanız gerekir:
-  #   aws s3 mb s3://YOUR-BUCKET-NAME --region eu-central-1
-  #   aws dynamodb create-table --table-name terraform-locks \
-  #     --attribute-definitions AttributeName=LockID,AttributeType=S \
-  #     --key-schema AttributeName=LockID,KeyType=HASH \
-  #     --billing-mode PAY_PER_REQUEST
-  #
-  # Aşağıdaki backend bloğunu aktif etmek için .env.template'i doldurun.
-  # İlk seferde lokal state kullanmak isterseniz bu bloğu yorum satırı yapın.
-  #
   # backend "s3" {
   #   bucket         = "marketplace-tf-state"
   #   key            = "marketplace/terraform.tfstate"
@@ -42,6 +41,7 @@ terraform {
   # }
 }
 
+# ── AWS Provider (eu-central-1 — Türkiye'ye en yakın) ────────────────────────
 provider "aws" {
   region = var.aws_region
 
@@ -54,18 +54,10 @@ provider "aws" {
   }
 }
 
-# CloudFront + ACM için us-east-1 provider gerekli
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
-
-  default_tags {
-    tags = merge(var.tags, {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    })
-  }
+# ── Cloudflare Provider ──────────────────────────────────────────────────────
+# us-east-1 provider KALDIRILDI — CloudFront olmadan artık gerekli değil
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 # ─── Ortak etiketler ─────────────────────────────────────────────────────────
@@ -92,6 +84,9 @@ locals {
     CLAUDE_MODEL    = var.claude_model
     S3_ASSETS_BUCKET    = module.data.s3_assets_bucket
     S3_PUBLISHED_BUCKET = module.data.s3_published_bucket
+    DOMAIN_NAME         = var.domain_name
+    CLOUDFLARE_API_TOKEN = var.cloudflare_api_token
+    CLOUDFLARE_ZONE_ID   = module.edge.cloudflare_zone_id
   }
 }
 
@@ -110,7 +105,7 @@ module "networking" {
 # ── 2. DATA KATMANI ─────────────────────────────────────────────────────────
 # RDS PostgreSQL + pgvector, DynamoDB, S3 bucket'ları
 module "data" {
-  source = "./modules/data"
+  source = "./modules/dataL"
 
   name_prefix       = local.name_prefix
   vpc_id            = module.networking.vpc_id
@@ -132,7 +127,7 @@ module "async" {
 }
 
 # ── 4. COMPUTE KATMANI ──────────────────────────────────────────────────────
-# Lambda fonksiyonları + API Gateway
+# Lambda fonksiyonları + API Gateway + Custom Domain + Domain Router
 module "compute" {
   source = "./modules/compute"
 
@@ -140,6 +135,7 @@ module "compute" {
   aws_region         = var.aws_region
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
+  domain_name        = var.domain_name
 
   # Lambda ortam değişkenleri
   lambda_env_common = local.lambda_env_common
@@ -161,14 +157,16 @@ module "compute" {
   eventbridge_bus_arn         = module.async.eventbridge_bus_arn
 
   # Data layer referansları
-  rds_endpoint        = module.data.rds_endpoint
-  dynamodb_table_name = module.data.dynamodb_table_name
-  dynamodb_table_arn  = module.data.dynamodb_table_arn
-  s3_assets_bucket    = module.data.s3_assets_bucket
-  s3_assets_bucket_arn = module.data.s3_assets_bucket_arn
-  s3_published_bucket = module.data.s3_published_bucket
+  rds_endpoint            = module.data.rds_endpoint
+  dynamodb_table_name     = module.data.dynamodb_table_name
+  dynamodb_table_arn      = module.data.dynamodb_table_arn
+  s3_assets_bucket        = module.data.s3_assets_bucket
+  s3_assets_bucket_arn    = module.data.s3_assets_bucket_arn
+  s3_published_bucket     = module.data.s3_published_bucket
   s3_published_bucket_arn = module.data.s3_published_bucket_arn
-  rds_security_group_id = module.data.rds_security_group_id
+  s3_react_bucket         = module.data.s3_react_bucket
+  s3_react_bucket_arn     = module.data.s3_react_bucket_arn
+  rds_security_group_id   = module.data.rds_security_group_id
 }
 
 # ── 5. AI KATMANI ───────────────────────────────────────────────────────────
@@ -200,22 +198,20 @@ module "ai" {
 }
 
 # ── 6. EDGE KATMANI ─────────────────────────────────────────────────────────
-# CloudFront, WAF, ACM SSL
+# Cloudflare DNS + CDN + SSL + WAF (CloudFront KALDIRILDI)
 module "edge" {
   source = "./modules/edge"
 
-  providers = {
-    aws           = aws
-    aws.us_east_1 = aws.us_east_1
-  }
+  name_prefix           = local.name_prefix
+  domain_name           = var.domain_name
+  cloudflare_account_id = var.cloudflare_account_id
 
-  name_prefix        = local.name_prefix
-  domain_name        = var.domain_name
-  route53_zone_id    = var.route53_zone_id
-  s3_react_bucket_domain  = module.data.s3_react_bucket_domain
-  s3_react_bucket_arn     = module.data.s3_react_bucket_arn
-  s3_assets_bucket_domain = module.data.s3_assets_bucket_domain
-  s3_published_bucket_domain = module.data.s3_published_bucket_domain
-  s3_published_bucket_arn    = module.data.s3_published_bucket_arn
-  api_gateway_invoke_url  = module.compute.api_gateway_invoke_url
+  # API Gateway Custom Domain hedefi
+  api_gw_custom_domain_target = module.compute.api_gw_custom_domain_target
+
+  # Lambda Function URL domain (wildcard subdomain'ler için)
+  domain_router_url_domain = module.compute.domain_router_url_domain
+
+  # ACM sertifika DNS doğrulaması Cloudflare üzerinden
+  acm_cert_validation_records = module.compute.acm_cert_validation_records
 }
