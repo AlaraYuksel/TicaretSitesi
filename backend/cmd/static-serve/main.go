@@ -39,8 +39,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+type S3GetObjectAPI interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
+
 var (
-	s3Client    *s3.Client
+	s3Client    S3GetObjectAPI
 	reactBucket string
 	assetsBucket string
 
