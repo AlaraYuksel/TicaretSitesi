@@ -870,6 +870,13 @@ export default function EditorInspector() {
         {selected.type === 'badge' && <BadgeInspector p={p} update={update} />}
         {selected.type === 'table' && <TableInspector p={p} update={update} />}
         {selected.type === 'horizontalScroll' && <HorizontalScrollInspector p={p} update={update} />}
+        {/* ── Minimalist tema inspector'ları ──────────────────────────────── */}
+        {selected.type === 'minimalistNavbar'  && <MinimalistNavbarInspector p={p} update={update} />}
+        {selected.type === 'productListing'    && <ProductListingInspector p={p} update={update} />}
+        {selected.type === 'cartPage'          && <CartPageInspector p={p} update={update} />}
+        {selected.type === 'productDetailHero' && <ProductDetailHeroInspector p={p} update={update} />}
+        {selected.type === 'categoryGrid'      && <CategoryGridInspector p={p} update={update} />}
+
 
         {/* ── Existing element inspectors ─────────────────────────────── */}
         {'text' in p && !['button', 'navbar', 'sidebar', 'hero', 'card', 'testimonial', 'form', 'accordion', 'tabs', 'badge', 'dividerText'].includes(selected.type) && (
@@ -1659,6 +1666,170 @@ function HorizontalScrollInspector({ p, update }) {
         style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11 }}>
         + Öğe Ekle
       </button>
+    </>
+  );
+}
+
+// ─── MİNİMALİST NAVBAR INSPECTOR ─────────────────────────────────────────────
+function MinimalistNavbarInspector({ p, update }) {
+  const links = p.links ?? [];
+  return (
+    <>
+      <SectionDivider title="Minimalist Navbar" />
+      <Row label="Marka Adı"><input type="text" value={p.brandName ?? 'MINIMALIST'} onChange={e => update('brandName', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#ffffff'} onChange={v => update('bg', v)} />
+        <ColorRow label="Kenarlık" value={p.borderColor ?? '#c4c7c8'} onChange={v => update('borderColor', v)} />
+        <ColorRow label="Marka Rengi" value={p.brandColor ?? '#191c1e'} onChange={v => update('brandColor', v)} />
+        <ColorRow label="Link Rengi" value={p.linkColor ?? '#444748'} onChange={v => update('linkColor', v)} />
+        <ColorRow label="Aktif Link" value={p.activeLinkColor ?? '#5d5f5f'} onChange={v => update('activeLinkColor', v)} />
+        <Row label="Sepet Sayısı"><NumInput value={p.cartCount ?? 0} onChange={v => update('cartCount', v)} min={0} max={99} /></Row>
+      </div>
+      <SectionDivider title={`Linkler (${links.length})`} />
+      {links.map((l, i) => (
+        <div key={l.id} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+          <input value={l.label} onChange={e => update('links', links.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} style={{ ...inputStyle, flex: 1 }} />
+          <button onClick={() => update('activeLink', l.id)} style={{ background: p.activeLink === l.id ? '#5d5f5f' : '#1e1e1e', border: 'none', borderRadius: 6, color: p.activeLink === l.id ? '#fff' : '#666', cursor: 'pointer', padding: '0 8px', fontSize: 10, fontWeight: 700 }}>Aktif</button>
+          <button onClick={() => update('links', links.filter((_, j) => j !== i))} style={{ background: 'rgba(229,62,62,0.1)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '0 8px' }}>✕</button>
+        </div>
+      ))}
+      <button onClick={() => update('links', [...links, { id: `ml${Date.now()}`, label: 'New Link', href: '#' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Link Ekle</button>
+    </>
+  );
+}
+
+// ─── ÜRÜN LİSTELEME INSPECTOR ─────────────────────────────────────────────────
+function ProductListingInspector({ p, update }) {
+  const products = p.products ?? [];
+  return (
+    <>
+      <SectionDivider title="Ürün Listeleme" />
+      <Row label="Sayfa Başlığı"><input type="text" value={p.pageTitle ?? ''} onChange={e => update('pageTitle', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Sayfa Etiketi"><input type="text" value={p.pageLabel ?? ''} onChange={e => update('pageLabel', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Sütun Sayısı"><NumInput value={p.columns ?? 3} onChange={v => update('columns', v)} min={1} max={4} /></Row>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#f7f9fc'} onChange={v => update('bg', v)} />
+        <ColorRow label="Metin" value={p.textColor ?? '#191c1e'} onChange={v => update('textColor', v)} />
+        <ColorRow label="Soluk Metin" value={p.textMutedColor ?? '#444748'} onChange={v => update('textMutedColor', v)} />
+        <ColorRow label="Birincil" value={p.primaryColor ?? '#5d5f5f'} onChange={v => update('primaryColor', v)} />
+        <ColorRow label="Vurgu" value={p.accentColor ?? '#2d3133'} onChange={v => update('accentColor', v)} />
+        <ColorRow label="Yüzey" value={p.surfaceColor ?? '#eceef1'} onChange={v => update('surfaceColor', v)} />
+      </div>
+      <SectionDivider title={`Ürünler (${products.length})`} />
+      {products.map((prod, i) => (
+        <div key={prod.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px', marginBottom: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 4 }}>
+            <input value={prod.title} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Ürün adı" />
+            <input value={prod.price} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, price: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Fiyat" />
+            <input value={prod.color ?? ''} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, color: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Renk/variant" />
+            <input value={prod.badge ?? ''} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, badge: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Rozet (opsiyonel)" />
+          </div>
+          <input value={prod.imageSrc ?? ''} onChange={e => update('products', products.map((x, j) => j === i ? { ...x, imageSrc: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Görsel URL" />
+          <button onClick={() => update('products', products.filter((_, j) => j !== i))} style={{ marginTop: 5, background: 'rgba(229,62,62,0.08)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '3px 10px', fontSize: 10 }}>Sil</button>
+        </div>
+      ))}
+      <button onClick={() => update('products', [...products, { id: `lp${Date.now()}`, title: 'Yeni Ürün', color: 'Renk', price: '$0.00', badge: '', imageSrc: '' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Ürün Ekle</button>
+    </>
+  );
+}
+
+// ─── SEPET SAYFASI INSPECTOR ──────────────────────────────────────────────────
+function CartPageInspector({ p, update }) {
+  const items = p.items ?? [];
+  return (
+    <>
+      <SectionDivider title="Sepet Sayfası" />
+      <Row label="Sayfa Başlığı"><input type="text" value={p.pageTitle ?? ''} onChange={e => update('pageTitle', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Checkout Butonu"><input type="text" value={p.checkoutBtnText ?? ''} onChange={e => update('checkoutBtnText', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Ara Toplam"><input type="text" value={p.subtotal ?? '0.00'} onChange={e => update('subtotal', e.target.value)} style={inputStyle} /></Row>
+        <Row label="Para Birimi"><input type="text" value={p.currency ?? '$'} onChange={e => update('currency', e.target.value)} style={inputStyle} /></Row>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#f7f9fc'} onChange={v => update('bg', v)} />
+        <ColorRow label="Kart BG" value={p.cardBg ?? '#ffffff'} onChange={v => update('cardBg', v)} />
+        <ColorRow label="Metin" value={p.textColor ?? '#191c1e'} onChange={v => update('textColor', v)} />
+        <ColorRow label="Vurgu" value={p.accentColor ?? '#2d3133'} onChange={v => update('accentColor', v)} />
+      </div>
+      <SectionDivider title={`Sepet Öğeleri (${items.length})`} />
+      {items.map((item, i) => (
+        <div key={item.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px', marginBottom: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <input value={item.title} onChange={e => update('items', items.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} style={{ ...inputStyle, marginBottom: 4 }} placeholder="Ürün adı" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+            <input value={item.price} onChange={e => update('items', items.map((x, j) => j === i ? { ...x, price: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Fiyat" />
+            <input value={item.variant ?? ''} onChange={e => update('items', items.map((x, j) => j === i ? { ...x, variant: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Varyant" />
+          </div>
+          <button onClick={() => update('items', items.filter((_, j) => j !== i))} style={{ marginTop: 5, background: 'rgba(229,62,62,0.08)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '3px 10px', fontSize: 10 }}>Sil</button>
+        </div>
+      ))}
+      <button onClick={() => update('items', [...items, { id: `ci${Date.now()}`, title: 'Yeni Ürün', variant: 'RENK / BEDEN', price: '$0.00', qty: 1, imageSrc: '' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Öğe Ekle</button>
+    </>
+  );
+}
+
+// ─── ÜRÜN DETAY HERO INSPECTOR ────────────────────────────────────────────────
+function ProductDetailHeroInspector({ p, update }) {
+  const colors = p.colors ?? [];
+  const sizes = p.sizes ?? [];
+  return (
+    <>
+      <SectionDivider title="Ürün Detay" />
+      <Row label="Ürün Adı"><input type="text" value={p.productName ?? ''} onChange={e => update('productName', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Fiyat"><input type="text" value={p.price ?? ''} onChange={e => update('price', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Açıklama"><textarea value={p.productDesc ?? ''} onChange={e => update('productDesc', e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} /></Row>
+      <Row label="Görsel URL"><input type="text" value={p.imageSrc ?? ''} onChange={e => update('imageSrc', e.target.value)} placeholder="https://..." style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Sepet Butonu"><input type="text" value={p.addToCartText ?? ''} onChange={e => update('addToCartText', e.target.value)} style={inputStyle} /></Row>
+        <Row label="Mağaza Butonu"><input type="text" value={p.findInStoreText ?? ''} onChange={e => update('findInStoreText', e.target.value)} style={inputStyle} /></Row>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#f7f9fc'} onChange={v => update('bg', v)} />
+        <ColorRow label="Vurgu" value={p.accentColor ?? '#2d3133'} onChange={v => update('accentColor', v)} />
+        <ColorRow label="Metin" value={p.textColor ?? '#191c1e'} onChange={v => update('textColor', v)} />
+        <ColorRow label="Kenarlık" value={p.borderColor ?? '#c4c7c8'} onChange={v => update('borderColor', v)} />
+      </div>
+      <SectionDivider title="Bedenler" />
+      <Row label="Beden Listesi (virgülle)">
+        <input type="text" value={sizes.join(', ')} onChange={e => update('sizes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} style={inputStyle} placeholder="XS, S, M, L, XL" />
+      </Row>
+      <Row label="Seçili Beden"><input type="text" value={p.selectedSize ?? ''} onChange={e => update('selectedSize', e.target.value)} style={inputStyle} /></Row>
+      <SectionDivider title={`Renkler (${colors.length})`} />
+      {colors.map((c, i) => (
+        <div key={c.id} style={{ display: 'flex', gap: 6, marginBottom: 5, alignItems: 'center' }}>
+          <input type="color" value={c.hex} onChange={e => update('colors', colors.map((x, j) => j === i ? { ...x, hex: e.target.value } : x))} style={{ width: 32, height: 32, border: 'none', padding: 0, cursor: 'pointer' }} />
+          <input value={c.label} onChange={e => update('colors', colors.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} style={{ ...inputStyle, flex: 1 }} placeholder="Renk adı" />
+          <button onClick={() => update('colors', colors.filter((_, j) => j !== i))} style={{ background: 'rgba(229,62,62,0.1)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '0 8px' }}>✕</button>
+        </div>
+      ))}
+      <button onClick={() => update('colors', [...colors, { id: `pc${Date.now()}`, hex: '#2d3133', label: 'Yeni Renk' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Renk Ekle</button>
+    </>
+  );
+}
+
+// ─── KATEGORİ GRİD INSPECTOR ──────────────────────────────────────────────────
+function CategoryGridInspector({ p, update }) {
+  const categories = p.categories ?? [];
+  return (
+    <>
+      <SectionDivider title="Kategori Grid" />
+      <Row label="Bölüm Başlığı"><input type="text" value={p.sectionTitle ?? ''} onChange={e => update('sectionTitle', e.target.value)} style={inputStyle} /></Row>
+      <Row label="Bölüm Etiketi"><input type="text" value={p.sectionLabel ?? ''} onChange={e => update('sectionLabel', e.target.value)} style={inputStyle} /></Row>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <Row label="Sütun Sayısı"><NumInput value={p.columns ?? 2} onChange={v => update('columns', v)} min={1} max={4} /></Row>
+        <ColorRow label="Arkaplan" value={p.bg ?? '#f7f9fc'} onChange={v => update('bg', v)} />
+        <ColorRow label="Kart BG" value={p.cardBg ?? '#eceef1'} onChange={v => update('cardBg', v)} />
+        <ColorRow label="Metin" value={p.textColor ?? '#191c1e'} onChange={v => update('textColor', v)} />
+        <ColorRow label="Soluk Metin" value={p.textMutedColor ?? '#444748'} onChange={v => update('textMutedColor', v)} />
+        <ColorRow label="Birincil" value={p.primaryColor ?? '#5d5f5f'} onChange={v => update('primaryColor', v)} />
+      </div>
+      <SectionDivider title={`Kategoriler (${categories.length})`} />
+      {categories.map((cat, i) => (
+        <div key={cat.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px', marginBottom: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 4 }}>
+            <input value={cat.label} onChange={e => update('categories', categories.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Kategori adı" />
+            <input value={cat.count ?? ''} onChange={e => update('categories', categories.map((x, j) => j === i ? { ...x, count: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="12 pieces" />
+          </div>
+          <input value={cat.imageSrc ?? ''} onChange={e => update('categories', categories.map((x, j) => j === i ? { ...x, imageSrc: e.target.value } : x))} style={{ ...inputStyle, fontSize: 11 }} placeholder="Görsel URL" />
+          <button onClick={() => update('categories', categories.filter((_, j) => j !== i))} style={{ marginTop: 5, background: 'rgba(229,62,62,0.08)', border: 'none', borderRadius: 6, color: '#e53e3e', cursor: 'pointer', padding: '3px 10px', fontSize: 10 }}>Sil</button>
+        </div>
+      ))}
+      <button onClick={() => update('categories', [...categories, { id: `cat${Date.now()}`, label: 'Yeni Kategori', count: '0 pieces', imageSrc: '' }])} style={{ width: '100%', padding: '7px', background: '#1e1e1e', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 7, color: '#666', cursor: 'pointer', fontSize: 11, marginTop: 4 }}>+ Kategori Ekle</button>
     </>
   );
 }

@@ -93,7 +93,19 @@ const ELEMENT_GROUPS = [
       { type: 'miniCart',     icon: 'shopping_basket', label: 'Mini Sepet',     badge: 'ZRN', desc: 'Sepet içerik paneli' },
     ],
   },
+  {
+    label: '✨ Minimalist',
+    color: '#5d5f5f',
+    items: [
+      { type: 'minimalistNavbar',  icon: 'menu_open',    label: 'Min. Navbar',    badge: 'NEW', desc: 'Beyaz minimal navigasyon' },
+      { type: 'productListing',    icon: 'view_comfy',   label: 'Ürün Listeleme', badge: 'NEW', desc: 'Filtreli grid + liste başlığı' },
+      { type: 'cartPage',          icon: 'receipt',      label: 'Sepet Sayfası',  badge: 'NEW', desc: 'Order summary + öğe listesi' },
+      { type: 'productDetailHero', icon: 'open_in_full', label: 'Ürün Detay',     badge: 'NEW', desc: 'Galeri + renk + beden seçici' },
+      { type: 'categoryGrid',      icon: 'category',     label: 'Kategori Grid',  badge: 'NEW', desc: 'Görsel kategori kartları' },
+    ],
+  },
 ];
+
 
 // ─── TEMPLATES ────────────────────────────────────────────────────────────────
 function genId() { return `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
@@ -222,6 +234,82 @@ const TEMPLATES = [
           spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
           visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
           breakpoints: { desktop: { x: 120, y: storeDims.height + 40, width: gridDims.width, height: gridDims.height }, tablet: null, mobile: null },
+        },
+      ];
+    },
+  },
+  {
+    label: 'Minimalist Ana Sayfa',
+    icon: 'storefront',
+    desc: 'Navbar + kategori + ürün listesi',
+    build: () => {
+      const navDims = defaultDimensions('minimalistNavbar');
+      const catDims = defaultDimensions('categoryGrid');
+      const listDims = defaultDimensions('productListing');
+      return [
+        { id: genId(), type: 'minimalistNavbar', name: 'Min. Navbar 1', visible: true, locked: false,
+          props: defaultProps('minimalistNavbar'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 0, y: 0, width: navDims.width, height: navDims.height }, tablet: null, mobile: null },
+        },
+        { id: genId(), type: 'categoryGrid', name: 'Kategori Grid 1', visible: true, locked: false,
+          props: defaultProps('categoryGrid'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 120, y: navDims.height + 40, width: catDims.width, height: catDims.height }, tablet: null, mobile: null },
+        },
+        { id: genId(), type: 'productListing', name: 'Ürün Listeleme 1', visible: true, locked: false,
+          props: defaultProps('productListing'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 120, y: navDims.height + catDims.height + 80, width: listDims.width, height: listDims.height }, tablet: null, mobile: null },
+        },
+      ];
+    },
+  },
+  {
+    label: 'Minimalist Ürün Detay',
+    icon: 'open_in_full',
+    desc: 'Navbar + ürün detay hero',
+    build: () => {
+      const navDims = defaultDimensions('minimalistNavbar');
+      const detailDims = defaultDimensions('productDetailHero');
+      return [
+        { id: genId(), type: 'minimalistNavbar', name: 'Min. Navbar 1', visible: true, locked: false,
+          props: defaultProps('minimalistNavbar'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 0, y: 0, width: navDims.width, height: navDims.height }, tablet: null, mobile: null },
+        },
+        { id: genId(), type: 'productDetailHero', name: 'Ürün Detay 1', visible: true, locked: false,
+          props: defaultProps('productDetailHero'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 120, y: navDims.height + 40, width: detailDims.width, height: detailDims.height }, tablet: null, mobile: null },
+        },
+      ];
+    },
+  },
+  {
+    label: 'Minimalist Sepet',
+    icon: 'shopping_bag',
+    desc: 'Navbar + sepet sayfası',
+    build: () => {
+      const navDims = defaultDimensions('minimalistNavbar');
+      const cartDims = defaultDimensions('cartPage');
+      return [
+        { id: genId(), type: 'minimalistNavbar', name: 'Min. Navbar 1', visible: true, locked: false,
+          props: { ...defaultProps('minimalistNavbar'), cartCount: 3 },
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 0, y: 0, width: navDims.width, height: navDims.height }, tablet: null, mobile: null },
+        },
+        { id: genId(), type: 'cartPage', name: 'Sepet Sayfası 1', visible: true, locked: false,
+          props: defaultProps('cartPage'),
+          spacing: { margin: { top:0,right:0,bottom:0,left:0 }, padding: { top:0,right:0,bottom:0,left:0 } },
+          visibleBreakpoints: { desktop:true, tablet:true, mobile:true },
+          breakpoints: { desktop: { x: 120, y: navDims.height + 40, width: cartDims.width, height: cartDims.height }, tablet: null, mobile: null },
         },
       ];
     },

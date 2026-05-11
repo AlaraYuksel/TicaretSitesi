@@ -12,7 +12,7 @@ export const BREAKPOINTS = {
 export const BREAKPOINT_ORDER = ['desktop', 'tablet', 'mobile'];
 
 // Media element types that should scale height proportionally with width
-const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll', 'productCard', 'productGrid', 'storeHeader', 'checkoutForm', 'miniCart']);
+const SCALE_HEIGHT_TYPES = new Set(['image', 'video', 'hero', 'card', 'navbar', 'sidebar', 'testimonial', 'avatar', 'table', 'codeBlock', 'countdown', 'horizontalScroll', 'productCard', 'productGrid', 'storeHeader', 'checkoutForm', 'miniCart', 'minimalistNavbar', 'productListing', 'cartPage', 'productDetailHero', 'categoryGrid']);
 
 export function getElementBounds(el, breakpoint = 'desktop') {
   if (el.breakpoints) {
@@ -370,6 +370,105 @@ export function defaultProps(type) {
       showQuantityControls: true, showRemoveButton: true,
       currency: '₺',
     },
+
+    // ── 🎨 Minimalist Tema E-Ticaret Bileşenleri ─────────────────────────────
+    minimalistNavbar: {
+      brandName: 'MINIMALIST',
+      brandColor: '#191c1e',
+      links: [
+        { id: 'ml1', label: 'Shop All', href: '#' },
+        { id: 'ml2', label: 'Categories', href: '#' },
+        { id: 'ml3', label: 'New Arrivals', href: '#' },
+        { id: 'ml4', label: 'Archive', href: '#' },
+      ],
+      activeLink: 'ml1',
+      bg: '#ffffff',
+      borderColor: '#c4c7c8',
+      linkColor: '#444748',
+      activeLinkColor: '#5d5f5f',
+      showSearch: true,
+      showCart: true,
+      showAccount: true,
+      cartCount: 0,
+    },
+    productListing: {
+      pageTitle: 'Essentials Collection',
+      pageLabel: 'ARCHIVE / APPAREL',
+      bg: '#f7f9fc',
+      primaryColor: '#5d5f5f',
+      surfaceColor: '#eceef1',
+      textColor: '#191c1e',
+      textMutedColor: '#444748',
+      accentColor: '#2d3133',
+      columns: 3,
+      showFilters: true,
+      products: [
+        { id: 'lp1', title: 'Sculpted Wool Overcoat', color: 'Charcoal Gray', price: '$890.00', badge: 'NEW ARRIVAL', imageSrc: '' },
+        { id: 'lp2', title: 'Textured Knit Sweater', color: 'Off-White', price: '$320.00', badge: '', imageSrc: '' },
+        { id: 'lp3', title: 'Architectural Tote Bag', color: 'Matte Black', price: '$550.00', badge: '', imageSrc: '' },
+        { id: 'lp4', title: 'Raw Indigo Denim', color: 'Dark Navy', price: '$245.00', badge: '', imageSrc: '' },
+        { id: 'lp5', title: 'Heavyweight Boxy Tee', color: 'Heather Gray', price: '$85.00', badge: 'SALE', salePrice: '$110.00', imageSrc: '' },
+        { id: 'lp6', title: 'Brushed Silver Cuff', color: 'Sterling Silver', price: '$180.00', badge: '', imageSrc: '' },
+      ],
+    },
+    cartPage: {
+      pageTitle: 'Shopping Bag',
+      itemCount: 3,
+      bg: '#f7f9fc',
+      cardBg: '#ffffff',
+      primaryColor: '#5d5f5f',
+      textColor: '#191c1e',
+      textMutedColor: '#444748',
+      borderColor: '#c4c7c8',
+      accentColor: '#2d3133',
+      currency: '$',
+      subtotal: '780.00',
+      checkoutBtnText: 'PROCEED TO CHECKOUT',
+      items: [
+        { id: 'ci1', title: 'Structured Wool Overcoat', variant: 'CHARCOAL / MEDIUM', price: '$450.00', qty: 1, imageSrc: '' },
+        { id: 'ci2', title: 'Essential Poplin Shirt', variant: 'OPTIC WHITE / LARGE', price: '$120.00', qty: 1, imageSrc: '' },
+        { id: 'ci3', title: 'Japanese Selvedge Denim', variant: 'INDIGO / 32', price: '$210.00', qty: 1, imageSrc: '' },
+      ],
+    },
+    productDetailHero: {
+      productName: 'Architectural Shell 01',
+      productDesc: 'A structural study in protective layering. Engineered from recycled high-tenacity nylon with a fluorocarbon-free water-repellent finish.',
+      price: '$590.00',
+      bg: '#f7f9fc',
+      primaryColor: '#5d5f5f',
+      textColor: '#191c1e',
+      textMutedColor: '#444748',
+      borderColor: '#c4c7c8',
+      accentColor: '#2d3133',
+      colors: [
+        { id: 'pc1', hex: '#2d3133', label: 'Obsidian Gray' },
+        { id: 'pc2', hex: '#f2f4f7', label: 'Cloud' },
+        { id: 'pc3', hex: '#454747', label: 'Slate' },
+      ],
+      selectedColor: 'pc1',
+      sizes: ['XS', 'S', 'M', 'L', 'XL'],
+      selectedSize: 'S',
+      addToCartText: 'Add to Cart',
+      findInStoreText: 'Find in Store',
+      imageSrc: '',
+    },
+    categoryGrid: {
+      sectionTitle: 'Shop by Category',
+      sectionLabel: 'COLLECTIONS',
+      bg: '#f7f9fc',
+      cardBg: '#eceef1',
+      primaryColor: '#5d5f5f',
+      textColor: '#191c1e',
+      textMutedColor: '#444748',
+      accentColor: '#2d3133',
+      columns: 2,
+      categories: [
+        { id: 'cat1', label: 'Outerwear', count: '12 pieces', imageSrc: '' },
+        { id: 'cat2', label: 'Knitwear', count: '8 pieces', imageSrc: '' },
+        { id: 'cat3', label: 'T-Shirts', count: '24 pieces', imageSrc: '' },
+        { id: 'cat4', label: 'Accessories', count: '15 pieces', imageSrc: '' },
+      ],
+    },
   };
   return map[type] ?? {};
 }
@@ -414,6 +513,12 @@ export function defaultDimensions(type) {
     cartWidget: { width: 64, height: 64 },
     checkoutForm: { width: 560, height: 640 },
     miniCart: { width: 380, height: 520 },
+    // Minimalist Tema
+    minimalistNavbar: { width: 1440, height: 80 },
+    productListing: { width: 1200, height: 780 },
+    cartPage: { width: 1200, height: 680 },
+    productDetailHero: { width: 1200, height: 600 },
+    categoryGrid: { width: 1200, height: 520 },
   };
   return map[type] ?? { width: 160, height: 80 };
 }
@@ -437,6 +542,12 @@ export function defaultElementName(type, count) {
     storeHeader: 'Mağaza Header',
     cartWidget: 'Sepet Widget', checkoutForm: 'Ödeme Formu',
     miniCart: 'Mini Sepet',
+    // Minimalist Tema
+    minimalistNavbar: 'Min. Navbar',
+    productListing: 'Ürün Listeleme',
+    cartPage: 'Sepet Sayfası',
+    productDetailHero: 'Ürün Detay',
+    categoryGrid: 'Kategori Grid',
   };
   return `${names[type] ?? type} ${count}`;
 }

@@ -1189,6 +1189,278 @@ const ElementContent = memo(({ el, updateProp, selectElement, selectedChildId })
       );
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎨 MİNİMALİST TEMA BİLEŞENLERİ
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── MİNİMALİST NAVBAR ───────────────────────────────────────────────────
+    case 'minimalistNavbar': {
+      const mLinks = p.links ?? [];
+      const minStyles = {
+        fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
+      };
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#ffffff',
+          borderBottom: `1px solid ${p.borderColor ?? '#c4c7c8'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', boxSizing: 'border-box',
+          ...minStyles,
+        }}>
+          {/* Brand */}
+          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', color: p.brandColor ?? '#191c1e', flexShrink: 0 }}>
+            {p.brandName ?? 'MINIMALIST'}
+          </div>
+          {/* Nav Links */}
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+            {mLinks.map(l => (
+              <span key={l.id} style={{
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: l.id === p.activeLink ? (p.activeLinkColor ?? '#5d5f5f') : (p.linkColor ?? '#444748'),
+                borderBottom: l.id === p.activeLink ? `1px solid ${p.activeLinkColor ?? '#5d5f5f'}` : '1px solid transparent',
+                paddingBottom: 2, cursor: 'pointer',
+              }}>
+                {l.label}
+              </span>
+            ))}
+          </nav>
+          {/* Icons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            {p.showSearch !== false && <span className="material-symbols-outlined" style={{ fontSize: 20, color: p.activeLinkColor ?? '#5d5f5f', cursor: 'pointer' }}>search</span>}
+            {p.showCart !== false && (
+              <span style={{ position: 'relative', cursor: 'pointer' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: p.activeLinkColor ?? '#5d5f5f' }}>shopping_bag</span>
+                {p.cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: p.accentColor ?? '#2d3133', color: '#fff', fontSize: 9, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{p.cartCount}</span>}
+              </span>
+            )}
+            {p.showAccount !== false && <span className="material-symbols-outlined" style={{ fontSize: 20, color: p.activeLinkColor ?? '#5d5f5f', cursor: 'pointer' }}>person</span>}
+          </div>
+          {/* Label */}
+          <div style={{ position: 'absolute', top: 4, right: 14, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(93,95,95,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MIN · NAVBAR</div>
+        </div>
+      );
+    }
+
+    // ── ÜRÜN LİSTELEME ──────────────────────────────────────────────────────
+    case 'productListing': {
+      const mProducts = p.products ?? [];
+      const cols = p.columns ?? 3;
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#f7f9fc',
+          display: 'flex', overflow: 'hidden',
+          fontFamily: "'Inter', 'Hanken Grotesk', sans-serif",
+        }}>
+          {/* Sidebar Filter */}
+          {p.showFilters !== false && (
+            <div style={{ width: 200, flexShrink: 0, borderRight: `1px solid ${p.borderColor ?? '#c4c7c8'}`, padding: '16px 16px', overflow: 'auto' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.textColor ?? '#191c1e', borderBottom: `1px solid ${p.borderColor ?? '#c4c7c8'}`, paddingBottom: 6, marginBottom: 10 }}>CATEGORIES</div>
+              {['Outerwear', 'Knitwear', 'T-Shirts', 'Accessories'].map((cat, i) => (
+                <div key={cat} style={{ fontSize: 13, color: i === 0 ? (p.primaryColor ?? '#5d5f5f') : (p.textMutedColor ?? '#444748'), padding: '6px 0', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
+                  <span>{cat}</span>
+                  <span style={{ fontSize: 10, color: p.textMutedColor ?? '#444748' }}>{[12,8,24,15][i]}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.textColor ?? '#191c1e', borderBottom: `1px solid ${p.borderColor ?? '#c4c7c8'}`, paddingBottom: 6, marginBottom: 10, marginTop: 16 }}>SIZE</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                {['XS','S','M','L'].map((s, i) => (
+                  <div key={s} style={{ height: 32, border: `1px solid ${i === 1 ? (p.accentColor ?? '#2d3133') : (p.borderColor ?? '#c4c7c8')}`, background: i === 1 ? (p.accentColor ?? '#2d3133') : 'transparent', color: i === 1 ? '#fff' : (p.textMutedColor ?? '#444748'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}>{s}</div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Product Grid */}
+          <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: p.primaryColor ?? '#5d5f5f', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{p.pageLabel ?? 'ARCHIVE / APPAREL'}</div>
+            <div style={{ fontSize: 28, fontWeight: 600, color: p.textColor ?? '#191c1e', letterSpacing: '-0.02em', marginBottom: 14, fontFamily: "'Hanken Grotesk', sans-serif" }}>{p.pageTitle ?? 'Essentials Collection'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 20 }}>
+              {mProducts.map(prod => (
+                <div key={prod.id} style={{ cursor: 'pointer' }}>
+                  <div style={{ aspectRatio: '3/4', background: p.surfaceColor ?? '#eceef1', overflow: 'hidden', marginBottom: 10, position: 'relative' }}>
+                    {prod.imageSrc
+                      ? <img src={prod.imageSrc} alt={prod.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: 32, color: '#a0a0a0' }}>image</span></div>
+                    }
+                    {prod.badge && <div style={{ position: 'absolute', top: 10, left: 10, fontSize: 8, fontWeight: 800, letterSpacing: '0.05em', background: prod.badge === 'SALE' ? '#ba1a1a' : (p.accentColor ?? '#2d3133'), color: '#fff', padding: '2px 8px' }}>{prod.badge}</div>}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: p.textColor ?? '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif", letterSpacing: '-0.01em', marginBottom: 2 }}>{prod.title}</div>
+                  <div style={{ fontSize: 12, color: p.textMutedColor ?? '#444748', marginBottom: 4 }}>{prod.color}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: p.textColor ?? '#191c1e', fontFamily: "'Inter', sans-serif" }}>
+                    {prod.price}
+                    {prod.salePrice && <span style={{ fontSize: 11, color: p.textMutedColor ?? '#444748', textDecoration: 'line-through', marginLeft: 8, fontWeight: 400 }}>{prod.salePrice}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ position: 'absolute', top: 4, right: 14, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(93,95,95,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MIN · LISTING</div>
+        </div>
+      );
+    }
+
+    // ── SEPET SAYFASI ────────────────────────────────────────────────────────
+    case 'cartPage': {
+      const cartItems = p.items ?? [];
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#f7f9fc',
+          padding: 24, boxSizing: 'border-box', overflow: 'auto',
+          fontFamily: "'Inter', 'Hanken Grotesk', sans-serif",
+        }}>
+          <div style={{ fontSize: 28, fontWeight: 600, color: p.textColor ?? '#191c1e', letterSpacing: '-0.02em', fontFamily: "'Hanken Grotesk', sans-serif", marginBottom: 4 }}>{p.pageTitle ?? 'Shopping Bag'}</div>
+          <div style={{ fontSize: 13, color: p.textMutedColor ?? '#444748', marginBottom: 20 }}>{p.itemCount ?? cartItems.length} items in your selection</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
+            {/* Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {cartItems.map((item, i) => (
+                <div key={item.id} style={{ display: 'flex', gap: 14, paddingBottom: 16, borderBottom: i < cartItems.length - 1 ? `1px solid ${p.borderColor ?? '#c4c7c8'}` : 'none' }}>
+                  <div style={{ width: 80, height: 100, background: p.surfaceColor ?? '#e0e3e6', flexShrink: 0, overflow: 'hidden' }}>
+                    {item.imageSrc ? <img src={item.imageSrc} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={item.title} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: 24, color: '#a0a0a0' }}>image</span></div>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: p.textColor ?? '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif" }}>{item.title}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: p.textColor ?? '#191c1e' }}>{item.price}</div>
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: p.textMutedColor ?? '#444748', textTransform: 'uppercase', marginBottom: 6 }}>{item.variant}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${p.borderColor ?? '#c4c7c8'}`, height: 32 }}>
+                        <div style={{ width: 28, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: 14, color: p.textMutedColor ?? '#444748' }}>remove</span></div>
+                        <div style={{ width: 28, textAlign: 'center', fontSize: 13, color: p.textColor ?? '#191c1e' }}>{item.qty}</div>
+                        <div style={{ width: 28, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: 14, color: p.textMutedColor ?? '#444748' }}>add</span></div>
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: p.textMutedColor ?? '#444748', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span> REMOVE
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Order Summary */}
+            <div style={{ background: p.cardBg ?? '#ffffff', border: `1px solid ${p.borderColor ?? '#c4c7c8'}`, padding: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 500, color: p.textColor ?? '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif", marginBottom: 16 }}>Order Summary</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: p.textMutedColor ?? '#444748', marginBottom: 8 }}><span>Subtotal</span><span style={{ color: p.textColor ?? '#191c1e' }}>{p.currency ?? '$'}{p.subtotal ?? '780.00'}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: p.textMutedColor ?? '#444748', marginBottom: 8 }}><span>Shipping</span><span style={{ color: p.primaryColor ?? '#5d5f5f' }}>Calculated at next step</span></div>
+              <div style={{ borderTop: `1px solid ${p.borderColor ?? '#c4c7c8'}`, paddingTop: 12, marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+                <span style={{ fontSize: 15, fontWeight: 500, color: p.textColor ?? '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif" }}>Total</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: p.textColor ?? '#191c1e' }}>{p.currency ?? '$'}{p.subtotal ?? '780.00'}</span>
+              </div>
+              <button style={{ width: '100%', padding: '14px', background: p.accentColor ?? '#121926', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+                {p.checkoutBtnText ?? 'PROCEED TO CHECKOUT'}
+              </button>
+            </div>
+          </div>
+          <div style={{ position: 'absolute', top: 4, right: 14, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(93,95,95,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MIN · CART</div>
+        </div>
+      );
+    }
+
+    // ── ÜRÜN DETAY HERO ─────────────────────────────────────────────────────
+    case 'productDetailHero': {
+      const mColors = p.colors ?? [];
+      const mSizes = p.sizes ?? ['XS', 'S', 'M', 'L'];
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#f7f9fc',
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          overflow: 'hidden',
+          fontFamily: "'Inter', 'Hanken Grotesk', sans-serif",
+        }}>
+          {/* Gallery */}
+          <div style={{ background: p.surfaceColor ?? '#eceef1', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {p.imageSrc
+              ? <img src={p.imageSrc} alt={p.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 56, color: '#a0a0a0' }}>image</span>
+                  <span style={{ fontSize: 10, color: '#a0a0a0', letterSpacing: 1 }}>Product Gallery</span>
+                </div>
+            }
+          </div>
+          {/* Info */}
+          <div style={{ padding: 28, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: p.textColor ?? '#191c1e', letterSpacing: '-0.02em', fontFamily: "'Hanken Grotesk', sans-serif", lineHeight: 1.15, textTransform: 'uppercase', marginBottom: 8 }}>{p.productName ?? 'Product Name'}</div>
+              <div style={{ fontSize: 13, color: p.textMutedColor ?? '#444748', lineHeight: 1.6, marginBottom: 10 }}>{p.productDesc ?? 'Product description.'}</div>
+              <div style={{ fontSize: 18, fontWeight: 500, color: p.textColor ?? '#191c1e' }}>{p.price ?? '$0.00'}</div>
+            </div>
+            {/* Colors */}
+            {mColors.length > 0 && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.textMutedColor ?? '#444748', marginBottom: 8 }}>Select Color — {mColors.find(c => c.id === p.selectedColor)?.label ?? mColors[0]?.label}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {mColors.map(c => (
+                    <div key={c.id} style={{ width: 32, height: 32, border: `1.5px solid ${c.id === p.selectedColor ? (p.textColor ?? '#191c1e') : (p.borderColor ?? '#c4c7c8')}`, padding: 2, cursor: 'pointer' }}>
+                      <div style={{ width: '100%', height: '100%', background: c.hex }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Sizes */}
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.textMutedColor ?? '#444748', marginBottom: 8 }}>Select Size</div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(mSizes.length, 4)}, 1fr)`, gap: 6 }}>
+                {mSizes.map(s => (
+                  <div key={s} style={{ padding: '10px 0', textAlign: 'center', border: `1px solid ${s === p.selectedSize ? (p.textColor ?? '#191c1e') : (p.borderColor ?? '#c4c7c8')}`, background: s === p.selectedSize ? (p.accentColor ?? '#191c1e') : 'transparent', color: s === p.selectedSize ? '#fff' : (p.textMutedColor ?? '#444748'), fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>{s}</div>
+                ))}
+              </div>
+            </div>
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button style={{ width: '100%', padding: '16px', background: p.accentColor ?? '#121926', color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: "'Hanken Grotesk', sans-serif" }}>
+                <span>{p.addToCartText ?? 'Add to Cart'}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>arrow_forward</span>
+              </button>
+              <button style={{ width: '100%', padding: '16px', background: 'transparent', color: p.textColor ?? '#191c1e', border: `1px solid ${p.textColor ?? '#191c1e'}`, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+                {p.findInStoreText ?? 'Find in Store'}
+              </button>
+            </div>
+          </div>
+          <div style={{ position: 'absolute', top: 4, right: 14, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(93,95,95,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MIN · DETAIL</div>
+        </div>
+      );
+    }
+
+    // ── KATEGORİ GRİD ───────────────────────────────────────────────────────
+    case 'categoryGrid': {
+      const cats = p.categories ?? [];
+      const cols = p.columns ?? 2;
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: p.bg ?? '#f7f9fc',
+          padding: 24, boxSizing: 'border-box', overflow: 'auto',
+          fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.primaryColor ?? '#5d5f5f', marginBottom: 6 }}>{p.sectionLabel ?? 'COLLECTIONS'}</div>
+          <div style={{ fontSize: 28, fontWeight: 600, color: p.textColor ?? '#191c1e', letterSpacing: '-0.02em', marginBottom: 20 }}>{p.sectionTitle ?? 'Shop by Category'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16 }}>
+            {cats.map(cat => (
+              <div key={cat.id} style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', background: p.cardBg ?? '#eceef1' }}>
+                <div style={{ aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {cat.imageSrc
+                    ? <img src={cat.imageSrc} alt={cat.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span className="material-symbols-outlined" style={{ fontSize: 40, color: '#a0a0a0' }}>image</span>
+                  }
+                </div>
+                <div style={{ padding: '12px 16px', borderTop: `1px solid ${p.borderColor ?? '#c4c7c8'}` }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: p.textColor ?? '#191c1e', marginBottom: 2, letterSpacing: '-0.01em' }}>{cat.label}</div>
+                  <div style={{ fontSize: 11, color: p.textMutedColor ?? '#444748', letterSpacing: '0.05em' }}>{cat.count}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ position: 'absolute', top: 4, right: 14, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(93,95,95,0.3)', textTransform: 'uppercase', pointerEvents: 'none' }}>MIN · CATEGORIES</div>
+        </div>
+      );
+    }
+
     default:
       return null;
   }
