@@ -6,7 +6,7 @@ function PageThumbnail({ page, isActive }) {
   return (
     <div style={{
       width: '100%', aspectRatio: '16/9',
-      background: '#181818',
+      background: page.backgroundColor ?? '#181818',
       borderRadius: 6,
       border: isActive ? '2px solid #4b8eff' : '1.5px solid rgba(255,255,255,0.05)',
       position: 'relative', overflow: 'hidden',
@@ -47,13 +47,14 @@ function PageThumbnail({ page, isActive }) {
 
 function PageRow({ page, index, isActive, total }) {
   const {
-    switchPage, renamePage, deletePage, duplicatePage, reorderPages,
+    switchPage, renamePage, deletePage, duplicatePage, reorderPages, setPageBackground,
   } = useEditorStore();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(page.name);
   const [dragOver, setDragOver] = useState(null);
   const inputRef = useRef(null);
+  const colorInputRef = useRef(null);
 
   const commitRename = () => {
     renamePage(page.id, draft.trim() || page.name);
@@ -155,6 +156,31 @@ function PageRow({ page, index, isActive, total }) {
             className="group-hover:opacity-100"
             onClick={e => e.stopPropagation()}
           >
+            {/* Background color picker */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => colorInputRef.current?.click()}
+                title="Arka plan rengi"
+                style={{
+                  ...pageActionBtn,
+                  background: page.backgroundColor ?? '#0e0e0e',
+                  border: '1.5px solid rgba(255,255,255,0.15)',
+                  overflow: 'hidden',
+                }}
+              >
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  value={page.backgroundColor ?? '#0e0e0e'}
+                  onChange={e => setPageBackground(page.id, e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    position: 'absolute', inset: 0, opacity: 0,
+                    width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0,
+                  }}
+                />
+              </button>
+            </div>
             <button
               onClick={() => duplicatePage(page.id)}
               title="Çoğalt"

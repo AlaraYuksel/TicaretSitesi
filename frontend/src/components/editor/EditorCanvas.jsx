@@ -1794,10 +1794,11 @@ export default function EditorCanvas() {
     snapLines, undo, redo, showGrid, gridSize,
     activeContainerId, exitContainer, selectedId,
     activeBreakpoint, getActiveCanvasWidth, getActiveCanvasHeight, setCanvasHeight,
-    resolveElementBounds,
+    resolveElementBounds, getActivePage,
   } = useEditorStore();
 
   const elements = getElements();
+  const activePage = getActivePage();
   const leftPanel = isElementPanelOpen || isLayersPanelOpen || isPagesPanelOpen;
 
   const canvasWidth = getActiveCanvasWidth();
@@ -1958,7 +1959,7 @@ export default function EditorCanvas() {
               width: `${canvasWidth}px`,
               height: `${dynamicHeight}px`,
               position: 'absolute', top: 0, left: 0,
-              background: '#181818',
+              background: activePage?.backgroundColor ?? '#0e0e0e',
               overflow: 'hidden',
             }}
           >

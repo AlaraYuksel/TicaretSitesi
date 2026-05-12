@@ -784,14 +784,26 @@ export default function EditorInspector() {
     addChildToContainer, deleteChild, reorderChildren,
     renameElement,
     pages, updateLinkAction, updateChildLinkAction,
+    getActivePage, setPageBackground,
   } = useEditorStore();
 
   const elements = getElements();
   const selected = elements.find(el => el.id === selectedId);
 
   if (!selected) {
+    const activePage = getActivePage();
     return (
       <aside style={panelStyle}>
+        <div style={{ padding: '20px 16px' }}>
+          <p style={{ fontSize: 10, fontWeight: 800, color: '#555', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            Sayfa Ayarları
+          </p>
+          <ColorRow
+            label="Arka Plan Rengi"
+            value={activePage?.backgroundColor ?? '#0e0e0e'}
+            onChange={color => setPageBackground(activePage.id, color)}
+          />
+        </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#333' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 40, marginBottom: 12 }}>ads_click</span>
           <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>Bir Element Seç</p>

@@ -592,7 +592,7 @@ function genId() {
 }
 
 function createPage(name, id) {
-  return { id: id ?? genId(), name: name ?? 'Page', elements: [] };
+  return { id: id ?? genId(), name: name ?? 'Page', elements: [], backgroundColor: '#0e0e0e' };
 }
 
 // ─── STORE ───────────────────────────────────────────────────────────────────
@@ -679,6 +679,9 @@ export const useEditorStore = create((set, get) => {
     },
     renamePage: (id, name) => {
       set(s => ({ pages: s.pages.map(p => p.id === id ? { ...p, name } : p) }));
+    },
+    setPageBackground: (id, color) => {
+      set(s => ({ pages: s.pages.map(p => p.id === id ? { ...p, backgroundColor: color } : p) }));
     },
     duplicatePage: (id) => {
       get()._saveHistory();

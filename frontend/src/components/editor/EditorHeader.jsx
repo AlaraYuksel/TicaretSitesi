@@ -489,9 +489,11 @@ function generateHTML(pages) {
     const desktopEls = page.elements.map(el => elementToHTMLWrapped(el, 'desktop', pages)).join('\n      ');
     const tabletEls = page.elements.map(el => elementToHTMLWrapped(el, 'tablet', pages)).join('\n      ');
     const mobileEls = page.elements.map(el => elementToHTMLWrapped(el, 'mobile', pages)).join('\n      ');
+    const bg = page.backgroundColor ?? '#0e0e0e';
+    const pageStyle = pi > 0 ? `style="display:none;background:${bg}"` : `style="background:${bg}"`;
 
     return `
-  <div class="page" id="page-${pi}" ${pi > 0 ? 'style="display:none"' : ''}>
+  <div class="page" id="page-${pi}" ${pageStyle}>
     <div class="canvas desktop-canvas">
       ${desktopEls}
     </div>
@@ -515,7 +517,7 @@ function generateHTML(pages) {
   <link href="${icons}" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0e0e0e; font-family: 'Inter', sans-serif; color: #e5e2e1; }
+    body { background: ${pages[0]?.backgroundColor ?? '#0e0e0e'}; font-family: 'Inter', sans-serif; color: #e5e2e1; }
     .canvas { position: relative; margin: 0 auto; }
     .desktop-canvas { width: ${BREAKPOINTS.desktop.width}px; min-height: ${BREAKPOINTS.desktop.width * 0.6}px; }
     .tablet-canvas  { display: none; width: ${BREAKPOINTS.tablet.width}px; min-height: ${BREAKPOINTS.tablet.width}px; }
@@ -541,6 +543,7 @@ ${pagesHTML}
     allPages.forEach(function(p, i) {
       p.style.display = i === pageIdx ? 'block' : 'none';
     });
+    document.body.style.background = allPages[pageIdx]?.style.background || '';
     window.__currentPage = pageIdx;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
