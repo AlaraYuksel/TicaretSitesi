@@ -12,8 +12,10 @@
   --color-primary: #adc6ff;
   --color-primary-container: #4b8eff;
   --color-on-primary-container: #00285c;
+  --color-surface-container-lowest: #141313;
   --color-surface-container: #201f1f;
   --color-surface-container-low: #1c1b1b;
+  --color-surface-container-high: #2a2928;
   --color-surface-container-highest: #353534;
   --color-on-surface: #e5e2e1;
   --color-on-surface-variant: #c1c6d7;
@@ -67,9 +69,12 @@
 @utility floating-label-input {
   &:focus-within label,
   & input:not(:placeholder-shown) + label {
-      transform: translateY(-1.6rem) scale(0.8);
+      transform: translateY(-0.95rem) scale(0.78);
       color: var(--color-primary);
       font-weight: 600;
+      background-color: var(--color-surface-container-low);
+      padding: 0 4px;
+      border-radius: 3px;
   }
 }
 
