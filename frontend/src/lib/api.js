@@ -149,6 +149,60 @@ export async function apiStorefrontRequestOTP(email, phone) {
   return res.json();
 }
 
+// ─── Marketplace API (Auth gerektirmez — herkes erişebilir) ──────────────────
+
+export async function apiMarketplaceListProducts({ q = '', category = '', sort = 'popular', page = 1, limit = 24 } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (category && category !== 'Tümü') params.set('category', category);
+  if (sort) params.set('sort', sort);
+  params.set('page', page);
+  params.set('limit', limit);
+  const res = await fetch(`${API_BASE}/marketplace/products?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiMarketplaceGetProduct(id) {
+  const res = await fetch(`${API_BASE}/marketplace/products/${id}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiMarketplaceListCategories() {
+  const res = await fetch(`${API_BASE}/marketplace/categories`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function apiMarketplaceCreateOrder(orderData) {
+  const res = await fetch(`${API_BASE}/marketplace/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderData),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiMarketplaceGetOrder(orderNumber) {
+  const res = await fetch(`${API_BASE}/marketplace/orders/${orderNumber}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function apiStorefrontVerifyOTP(email, phone, code) {
   const res = await fetch(`${API_BASE}/storefront/orders/verify`, {
     method: 'POST',

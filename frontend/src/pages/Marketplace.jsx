@@ -1,23 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  apiMarketplaceListProducts,
+  apiMarketplaceListCategories,
+} from '../lib/api';
+import { useCartStore } from '../store/useCartStore';
 
-// ─── Mock data (backend bağlantısı kurulana kadar) ──────────────────────────
-const MOCK_PRODUCTS = [
-  { id: 'mp1', title: 'Architectural Shirt', price: 18500, currency: '₺', image: '', seller: 'Studio Minimal', category: 'Giyim', rating: 4.8, reviewCount: 124, badge: 'YENİ', slug: 'architectural-shirt' },
-  { id: 'mp2', title: 'Matte Geometric Vase', price: 7500, currency: '₺', image: '', seller: 'Ceramic Works', category: 'Dekorasyon', rating: 4.5, reviewCount: 89, badge: '', slug: 'matte-geometric-vase' },
-  { id: 'mp3', title: 'Raw Edge Wallet', price: 12000, currency: '₺', image: '', seller: 'Leather Lab', category: 'Aksesuar', rating: 4.7, reviewCount: 201, badge: '', slug: 'raw-edge-wallet' },
-  { id: 'mp4', title: 'Void Series 01 Watch', price: 35000, currency: '₺', image: '', seller: 'Void Watches', category: 'Aksesuar', rating: 4.9, reviewCount: 56, badge: 'POPÜLER', slug: 'void-series-01' },
-  { id: 'mp5', title: 'Minimalist Desk Lamp', price: 4500, currency: '₺', image: '', seller: 'Light Studio', category: 'Dekorasyon', rating: 4.3, reviewCount: 78, badge: '', slug: 'minimalist-desk-lamp' },
-  { id: 'mp6', title: 'Organic Cotton Tee', price: 8900, currency: '₺', image: '', seller: 'Studio Minimal', category: 'Giyim', rating: 4.6, reviewCount: 312, badge: 'EN ÇOK SATAN', slug: 'organic-cotton-tee' },
-  { id: 'mp7', title: 'Concrete Planter', price: 3200, currency: '₺', image: '', seller: 'Green House', category: 'Dekorasyon', rating: 4.1, reviewCount: 45, badge: '', slug: 'concrete-planter' },
-  { id: 'mp8', title: 'Canvas Tote Bag', price: 5600, currency: '₺', image: '', seller: 'Leather Lab', category: 'Aksesuar', rating: 4.4, reviewCount: 167, badge: 'YENİ', slug: 'canvas-tote-bag' },
-  { id: 'mp9', title: 'Wireless Earbuds Pro', price: 24900, currency: '₺', image: '', seller: 'Tech Store', category: 'Elektronik', rating: 4.7, reviewCount: 432, badge: '', slug: 'wireless-earbuds-pro' },
-  { id: 'mp10', title: 'Smart Home Hub', price: 15900, currency: '₺', image: '', seller: 'Tech Store', category: 'Elektronik', rating: 4.2, reviewCount: 98, badge: 'İNDİRİM', slug: 'smart-home-hub' },
-  { id: 'mp11', title: 'Merino Wool Scarf', price: 6700, currency: '₺', image: '', seller: 'Studio Minimal', category: 'Giyim', rating: 4.8, reviewCount: 73, badge: '', slug: 'merino-wool-scarf' },
-  { id: 'mp12', title: 'Brass Candle Holder', price: 4100, currency: '₺', image: '', seller: 'Ceramic Works', category: 'Dekorasyon', rating: 4.6, reviewCount: 112, badge: '', slug: 'brass-candle-holder' },
-];
-
-const CATEGORIES = ['Tümü', 'Giyim', 'Aksesuar', 'Dekorasyon', 'Elektronik'];
 const SORT_OPTIONS = [
   { value: 'popular', label: 'Popüler' },
   { value: 'newest', label: 'En Yeni' },
@@ -26,18 +14,21 @@ const SORT_OPTIONS = [
   { value: 'rating', label: 'En Yüksek Puan' },
 ];
 
-const formatPrice = (cents, currency = '₺') => `${currency}${(cents / 100).toFixed(2)}`;
+const formatPrice = (cents, currency = 'TRY') => {
+  const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₺';
+  return `${sym}${(cents / 100).toFixed(2)}`;
+};
 
 // ─── Product Card ───────────────────────────────────────────────────────────
-function ProductCard({ product }) {
+function ProductCard({ product, onOpen, onQuickAdd }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
       style={{ cursor: 'pointer', transition: 'transform 0.3s ease' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => onOpen(product)}
     >
-      {/* Image */}
       <div style={{
         position: 'relative', aspectRatio: '3/4', overflow: 'hidden', marginBottom: 12,
         background: '#eceef1', border: '1px solid #c4c7c8',
@@ -58,47 +49,52 @@ function ProductCard({ product }) {
             <span style={{ fontSize: 10, color: '#888', letterSpacing: '0.1em', fontWeight: 600 }}>ÜRÜN</span>
           </div>
         )}
-        {/* Hover overlay */}
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.05)',
           opacity: hovered ? 1 : 0, transition: 'opacity 0.3s ease',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <button style={{
-            background: '#fff', color: '#121926', padding: '10px 24px',
-            border: '1px solid #121926', fontSize: 10, fontWeight: 700,
-            letterSpacing: '0.1em', cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif",
-          }}>HIZLI EKLE</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuickAdd(product); }}
+            style={{
+              background: '#fff', color: '#121926', padding: '10px 24px',
+              border: '1px solid #121926', fontSize: 10, fontWeight: 700,
+              letterSpacing: '0.1em', cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif",
+            }}>HIZLI EKLE</button>
         </div>
-        {/* Badge */}
         {product.badge && (
           <span style={{
             position: 'absolute', top: 12, left: 12,
-            background: product.badge === 'İNDİRİM' ? '#ba1a1a' : '#121926',
+            background: product.badge === 'İNDİRİM' || product.badge === 'SALE' ? '#ba1a1a' : '#121926',
             color: '#fff', fontSize: 9, fontWeight: 800, padding: '3px 10px',
             letterSpacing: '0.05em',
           }}>{product.badge}</span>
         )}
       </div>
-      {/* Info */}
       <div style={{ fontFamily: "'Hanken Grotesk', sans-serif" }}>
         <h4 style={{
           margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
           color: '#191c1e', marginBottom: 4, lineHeight: 1.3,
-        }}>{product.title.toUpperCase()}</h4>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <div style={{ display: 'flex', gap: 1 }}>
-            {Array.from({ length: Math.floor(product.rating) }).map((_, i) => (
-              <span key={i} style={{ color: '#f59e0b', fontSize: 11 }}>★</span>
-            ))}
+        }}>{(product.title || '').toUpperCase()}</h4>
+        {product.rating > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={{ display: 'flex', gap: 1 }}>
+              {Array.from({ length: Math.floor(product.rating) }).map((_, i) => (
+                <span key={i} style={{ color: '#f59e0b', fontSize: 11 }}>★</span>
+              ))}
+            </div>
+            {product.review_count > 0 && (
+              <span style={{ fontSize: 10, color: '#747878' }}>({product.review_count})</span>
+            )}
           </div>
-          <span style={{ fontSize: 10, color: '#747878' }}>({product.reviewCount})</span>
-        </div>
+        )}
         <p style={{
           margin: 0, fontSize: 14, color: '#444748', fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
         }}>{formatPrice(product.price, product.currency)}</p>
-        <p style={{ margin: '4px 0 0', fontSize: 10, color: '#747878', fontWeight: 500 }}>{product.seller}</p>
+        {product.seller && (
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: '#747878', fontWeight: 500 }}>{product.seller}</p>
+        )}
       </div>
     </div>
   );
@@ -107,38 +103,55 @@ function ProductCard({ product }) {
 // ─── Marketplace Page ───────────────────────────────────────────────────────
 export default function Marketplace() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState(MOCK_PRODUCTS);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [category, setCategory] = useState('Tümü');
   const [sort, setSort] = useState('popular');
-  const [cartCount, setCartCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [total, setTotal] = useState(0);
 
-  // Fetch from backend when available
+  const cartCount = useCartStore(s => s.getItemCount());
+  const addToCart = useCartStore(s => s.addItem);
+
   useEffect(() => {
-    fetch('/api/products?limit=50')
-      .then(r => r.json())
-      .then(data => {
-        if (data.products?.length > 0) setProducts(data.products);
-      })
-      .catch(() => { /* use mock data */ });
+    apiMarketplaceListCategories()
+      .then(data => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = [...products];
-    if (category !== 'Tümü') list = list.filter(p => p.category === category);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(p => p.title.toLowerCase().includes(q) || p.seller?.toLowerCase().includes(q));
-    }
-    switch (sort) {
-      case 'price_asc': list.sort((a, b) => a.price - b.price); break;
-      case 'price_desc': list.sort((a, b) => b.price - a.price); break;
-      case 'rating': list.sort((a, b) => b.rating - a.rating); break;
-      case 'newest': list.reverse(); break;
-      default: list.sort((a, b) => b.reviewCount - a.reviewCount);
-    }
-    return list;
-  }, [products, category, search, sort]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    apiMarketplaceListProducts({ q: search, category, sort, page: 1, limit: 48 })
+      .then(data => {
+        if (cancelled) return;
+        setProducts(data.products || []);
+        setTotal(data.total || 0);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        setError(err.message);
+        setProducts([]);
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [search, category, sort]);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSearch(searchInput);
+  };
+
+  const handleOpenProduct = (p) => navigate(`/marketplace/product/${p.id}`);
+  const handleQuickAdd = (p) => {
+    addToCart(p, 1);
+  };
+
+  const allCategories = ['Tümü', ...categories];
 
   return (
     <div style={{
@@ -160,7 +173,7 @@ export default function Marketplace() {
               color: '#191c1e', textDecoration: 'none', fontFamily: "'Hanken Grotesk', sans-serif",
             }}>MARKETPLACE</a>
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-              {['Tümü', 'Giyim', 'Aksesuar', 'Dekorasyon', 'Elektronik'].map(cat => (
+              {allCategories.slice(0, 6).map(cat => (
                 <button key={cat} onClick={() => setCategory(cat)} style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
@@ -172,27 +185,27 @@ export default function Marketplace() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Search */}
-            <div style={{
+            <form onSubmit={handleSearchSubmit} style={{
               display: 'flex', alignItems: 'center', gap: 8,
               background: '#f2f4f7', border: '1px solid #c4c7c8', padding: '8px 16px',
             }}>
               <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#747878' }}>search</span>
               <input
-                type="text" placeholder="ÜRÜN ARA..." value={search}
-                onChange={e => setSearch(e.target.value)}
+                type="text" placeholder="ÜRÜN ARA..." value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
                 style={{
                   background: 'transparent', border: 'none', outline: 'none',
                   fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', width: 140,
                   color: '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif",
                 }}
               />
-            </div>
-            {/* Cart */}
-            <button style={{
-              position: 'relative', background: 'none', border: 'none',
-              cursor: 'pointer', color: '#5d5f5f',
-            }}>
+            </form>
+            <button
+              onClick={() => navigate('/marketplace/cart')}
+              style={{
+                position: 'relative', background: 'none', border: 'none',
+                cursor: 'pointer', color: '#5d5f5f',
+              }}>
               <span className="material-symbols-outlined" style={{ fontSize: 22 }}>shopping_bag</span>
               {cartCount > 0 && (
                 <span style={{
@@ -223,7 +236,7 @@ export default function Marketplace() {
         <span style={{
           fontSize: 11, fontWeight: 700, letterSpacing: '0.3em', color: '#747878',
           display: 'block', marginBottom: 16, fontFamily: "'Hanken Grotesk', sans-serif",
-        }}>MARKETPLACE 2024</span>
+        }}>MARKETPLACE 2026</span>
         <h1 style={{
           fontSize: 44, fontWeight: 600, letterSpacing: '-0.02em',
           color: '#191c1e', margin: '0 0 16px', lineHeight: 1.1,
@@ -254,7 +267,6 @@ export default function Marketplace() {
 
       {/* ── PRODUCT GRID ───────────────────────────────────────────── */}
       <section style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 24px' }}>
-        {/* Toolbar */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 32,
@@ -264,7 +276,9 @@ export default function Marketplace() {
               margin: 0, fontSize: 24, fontWeight: 500, letterSpacing: '-0.01em',
               color: '#191c1e', fontFamily: "'Hanken Grotesk', sans-serif",
             }}>{category === 'Tümü' ? 'Tüm Ürünler' : category}</h2>
-            <span style={{ fontSize: 12, color: '#747878' }}>{filtered.length} ürün</span>
+            <span style={{ fontSize: 12, color: '#747878' }}>
+              {loading ? 'yükleniyor...' : `${total} ürün`}
+            </span>
           </div>
           <select
             value={sort} onChange={e => setSort(e.target.value)}
@@ -278,51 +292,49 @@ export default function Marketplace() {
           </select>
         </div>
 
-        {/* Grid */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32,
-        }}>
-          {filtered.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {error && (
+          <div style={{
+            background: '#fee', border: '1px solid #fbb', color: '#900',
+            padding: '12px 16px', marginBottom: 20, fontSize: 13,
+          }}>
+            Hata: {error}
+          </div>
+        )}
 
-        {filtered.length === 0 && (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#747878' }}>
+            Yükleniyor...
+          </div>
+        ) : products.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '80px 0', color: '#747878',
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 48, marginBottom: 12, display: 'block' }}>search_off</span>
-            <p style={{ fontSize: 14 }}>Aramanızla eşleşen ürün bulunamadı.</p>
+            <span className="material-symbols-outlined" style={{ fontSize: 48, marginBottom: 12, display: 'block' }}>storefront</span>
+            <p style={{ fontSize: 14, marginBottom: 8 }}>Henüz yayınlanmış ürün yok.</p>
+            <p style={{ fontSize: 12 }}>
+              <button
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  background: 'none', border: 'none', color: '#121926',
+                  textDecoration: 'underline', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                }}
+              >Bir mağaza açın</button> ve ürün ekleyin.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32,
+          }}>
+            {products.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onOpen={handleOpenProduct}
+                onQuickAdd={handleQuickAdd}
+              />
+            ))}
           </div>
         )}
-      </section>
-
-      {/* ── NEWSLETTER ──────────────────────────────────────────────── */}
-      <section style={{
-        padding: '80px 24px', textAlign: 'center', maxWidth: 640, margin: '0 auto',
-      }}>
-        <h2 style={{
-          fontSize: 36, fontWeight: 600, letterSpacing: '-0.02em',
-          color: '#191c1e', margin: '0 0 12px',
-          fontFamily: "'Hanken Grotesk', sans-serif",
-        }}>BÜLTEN</h2>
-        <p style={{ fontSize: 14, color: '#747878', marginBottom: 32 }}>
-          Yeni mağazalar ve özel fırsatlardan ilk siz haberdar olun.
-        </p>
-        <div style={{ display: 'flex', gap: 0 }}>
-          <input
-            type="email" placeholder="E-POSTA ADRESİNİZ"
-            style={{
-              flex: 1, border: '1px solid #c4c7c8', padding: '14px 20px',
-              fontSize: 12, outline: 'none', fontFamily: "'Inter', sans-serif",
-            }}
-          />
-          <button style={{
-            background: '#121926', color: '#fff', padding: '14px 28px', border: 'none',
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer',
-            fontFamily: "'Hanken Grotesk', sans-serif",
-          }}>ABONE OL</button>
-        </div>
       </section>
 
       {/* ── FOOTER ─────────────────────────────────────────────────── */}
@@ -371,7 +383,7 @@ export default function Marketplace() {
           <p style={{
             fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#747878',
             fontFamily: "'Hanken Grotesk', sans-serif",
-          }}>© 2024 MARKETPLACE. TÜM HAKLARI SAKLIDIR.</p>
+          }}>© 2026 MARKETPLACE. TÜM HAKLARI SAKLIDIR.</p>
         </div>
       </footer>
     </div>

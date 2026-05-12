@@ -9,6 +9,10 @@ import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import OrderTracker from './pages/OrderTracker';
 import Marketplace from './pages/Marketplace';
+import MarketplaceProduct from './pages/MarketplaceProduct';
+import MarketplaceCart from './pages/MarketplaceCart';
+import MarketplaceCheckout from './pages/MarketplaceCheckout';
+import MarketplaceOrderSuccess from './pages/MarketplaceOrderSuccess';
 
 // ─── Route Guard: Giriş yapmamış kullanıcıyı Auth'a yönlendir ───────────────
 function ProtectedRoute({ children }) {
@@ -61,8 +65,12 @@ function App() {
         {/* Sipariş takip sayfası — auth gerektirmez, website builder'dan bağımsız */}
         <Route path="/track" element={<OrderTracker />} />
         
-        {/* Marketplace sayfası — auth gerektirmez */}
+        {/* Marketplace sayfaları — auth gerektirmez */}
         <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/marketplace/product/:id" element={<MarketplaceProduct />} />
+        <Route path="/marketplace/cart" element={<MarketplaceCart />} />
+        <Route path="/marketplace/checkout" element={<MarketplaceCheckout />} />
+        <Route path="/marketplace/order/:orderNumber" element={<MarketplaceOrderSuccess />} />
         
         {/* Dashboard sayfası — auth gerekli */}
         <Route path="/dashboard" element={

@@ -181,6 +181,47 @@ func (s *Store) UpdateSiteData(ctx context.Context, p UpdateSiteDataParams) (*Si
 }
 
 func (s *Store) PublishSite(ctx context.Context, id, userID string) (*Site, error) {
+	// "Bir kullanıcı yalnızca tek bir site yayınlayabilir" kuralı:
+	// Önce bu kullanıcının diğer yayınlanmış sitelerini unpublish et ve
+	// ürünlerini marketplace'ten temizle. Sonra bu siteyi yayınla.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("PublishSite begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1) Diğer publish edilmiş sitelerin id'sini al
+	rows, err := tx.Query(ctx,
+		`SELECT id FROM sites WHERE user_id = $1 AND is_published = TRUE AND id <> $2`,
+		userID, id)
+	if err != nil {
+		return nil, fmt.Errorf("PublishSite list other: %w", err)
+	}
+	var otherIDs []string
+	for rows.Next() {
+		var sid string
+		if err := rows.Scan(&sid); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		otherIDs = append(otherIDs, sid)
+	}
+	rows.Close()
+
+	// 2) Diğer siteleri unpublish + ürünlerini temizle
+	for _, sid := range otherIDs {
+		if _, err := tx.Exec(ctx,
+			`UPDATE sites SET is_published = FALSE, published_at = NULL, updated_at = NOW()
+			 WHERE id = $1 AND user_id = $2`, sid, userID); err != nil {
+			return nil, fmt.Errorf("PublishSite unpublish other: %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM published_products WHERE site_id = $1`, sid); err != nil {
+			return nil, fmt.Errorf("PublishSite clean other products: %w", err)
+		}
+	}
+
+	// 3) Bu siteyi yayınla
 	const q = `
 		UPDATE sites
 		SET is_published = TRUE, published_at = NOW(), updated_at = NOW()
@@ -191,8 +232,48 @@ func (s *Store) PublishSite(ctx context.Context, id, userID string) (*Site, erro
 		          favicon_url, meta_title, meta_description,
 		          created_at, updated_at`
 
-	row := s.pool.QueryRow(ctx, q, id, userID)
-	return scanSite(row)
+	row := tx.QueryRow(ctx, q, id, userID)
+	site, err := scanSite(row)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("PublishSite commit: %w", err)
+	}
+	return site, nil
+}
+
+// UnpublishSite — siteyi yayından kaldırır ve marketplace'teki ürünlerini temizler.
+func (s *Store) UnpublishSite(ctx context.Context, id, userID string) (*Site, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("UnpublishSite begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	const q = `
+		UPDATE sites
+		SET is_published = FALSE, published_at = NULL, updated_at = NOW()
+		WHERE id = $1 AND user_id = $2
+		RETURNING id, user_id, title, description, thumbnail_url,
+		          subdomain, custom_domain, site_data, is_published,
+		          published_at, published_url, canvas_heights,
+		          favicon_url, meta_title, meta_description,
+		          created_at, updated_at`
+
+	row := tx.QueryRow(ctx, q, id, userID)
+	site, err := scanSite(row)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM published_products WHERE site_id = $1`, id); err != nil {
+		return nil, fmt.Errorf("UnpublishSite clean products: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return site, nil
 }
 
 func (s *Store) DeleteSite(ctx context.Context, id, userID string) error {

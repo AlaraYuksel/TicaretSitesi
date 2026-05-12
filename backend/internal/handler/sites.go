@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -123,6 +124,36 @@ func (h *SiteHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	site, err := h.store.PublishSite(r.Context(), id, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Site yayınlanamadı")
+		return
+	}
+
+	// Marketplace sync — site_data'dan ürünleri çıkar ve published_products'a yansıt.
+	// Burada bir hata olursa siteyi unpublish etmiyoruz; sadece log düşüyoruz.
+	storeName := site.Title
+	count, syncErr := SyncPublishedProductsForSite(
+		r.Context(), h.store, site.ID, site.UserID, site.SiteData, storeName,
+	)
+	if syncErr != nil {
+		log.Printf("Marketplace sync hatası (site=%s): %v", site.ID, syncErr)
+	} else {
+		log.Printf("Marketplace sync: site=%s ürün=%d", site.ID, count)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"site":            site,
+		"products_synced": count,
+	})
+}
+
+// ─── POST /api/sites/{id}/unpublish ──────────────────────────────────────────
+
+func (h *SiteHandler) Unpublish(w http.ResponseWriter, r *http.Request) {
+	id := pathValue(r, "id")
+	userID := middleware.UserIDFromCtx(r.Context())
+
+	site, err := h.store.UnpublishSite(r.Context(), id, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Site yayından kaldırılamadı")
 		return
 	}
 	writeJSON(w, http.StatusOK, site)

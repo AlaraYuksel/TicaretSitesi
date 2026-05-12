@@ -51,6 +51,7 @@ func main() {
 	sellerHandler := handler.NewSellerHandler(store)
 	webhookHandler := handler.NewWebhookHandler(store, "", "") // TODO: env'den stripe/easypost secret al
 	storefrontHandler := handler.NewStorefrontHandler(store)
+	marketplaceHandler := handler.NewMarketplaceHandler(store)
 
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
 	// 🔄 COGNITO_SWITCH: Lokal JWT auth.
@@ -79,6 +80,7 @@ func main() {
 	mux.Handle("GET /api/sites/{id}", auth(http.HandlerFunc(siteHandler.Get)))
 	mux.Handle("PUT /api/sites/{id}/data", auth(http.HandlerFunc(siteHandler.SaveData)))
 	mux.Handle("POST /api/sites/{id}/publish", auth(http.HandlerFunc(siteHandler.Publish)))
+	mux.Handle("POST /api/sites/{id}/unpublish", auth(http.HandlerFunc(siteHandler.Unpublish)))
 	mux.Handle("DELETE /api/sites/{id}", auth(http.HandlerFunc(siteHandler.Delete)))
 
 	// ── 🛒 E-Ticaret: Ürün API ───────────────────────────────────────────────
@@ -109,6 +111,13 @@ func main() {
 	mux.HandleFunc("POST /api/storefront/orders/verify", storefrontHandler.VerifyOTP)
 	mux.HandleFunc("GET /api/storefront/orders/detail/{orderNumber}", storefrontHandler.GetOrderByNumber)
 	mux.HandleFunc("GET /api/storefront/sites/{siteId}/products", storefrontHandler.ListProducts)
+
+	// ── 🛒 Marketplace API (auth yok — herkes görebilir) ─────────────────────
+	mux.HandleFunc("GET /api/marketplace/products", marketplaceHandler.ListProducts)
+	mux.HandleFunc("GET /api/marketplace/products/{id}", marketplaceHandler.GetProduct)
+	mux.HandleFunc("GET /api/marketplace/categories", marketplaceHandler.ListCategories)
+	mux.HandleFunc("POST /api/marketplace/orders", marketplaceHandler.CreateOrder)
+	mux.HandleFunc("GET /api/marketplace/orders/{orderNumber}", marketplaceHandler.GetOrder)
 
 	// ── Domain Serving ───────────────────────────────────────────────────────
 	// Tüm diğer istekler → Host header'dan subdomain/custom domain bul → site serve et
