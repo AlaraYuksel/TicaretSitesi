@@ -203,6 +203,76 @@ export async function apiMarketplaceGetOrder(orderNumber) {
   return res.json();
 }
 
+// ─── AI Site Builder (Gemini) ────────────────────────────────────────────────
+
+// Plan üret — yarı otonom akışın 1. adımı. Kullanıcı bunu onaylar.
+export async function apiAIPlanSite(siteId, prompt, style) {
+  return apiFetch('/ai/build-site/plan', {
+    method: 'POST',
+    body: JSON.stringify({ site_id: siteId, prompt, style: style || 'modern' }),
+  });
+}
+
+// Plan uygula — SSE ile progress stream'i.
+// onEvent her olayda { type, ...payload } ile çağrılır.
+// Geri dönen fonksiyon stream'i iptal eder.
+export function apiAIExecutePlan(planId, siteId, onEvent) {
+  const token = getToken();
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/ai/build-site/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ plan_id: planId, site_id: siteId }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        onEvent({ type: 'error', message: body.error || `HTTP ${res.status}` });
+        return;
+      }
+      if (!res.body) {
+        onEvent({ type: 'error', message: 'Stream desteklenmiyor' });
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE event delimitter: çift newline
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          // "data: " prefix'ini sıyır
+          const line = raw.split('\n').find(l => l.startsWith('data: '));
+          if (!line) continue;
+          try {
+            onEvent(JSON.parse(line.slice(6)));
+          } catch (e) {
+            console.error('SSE parse hatası', e, line);
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        onEvent({ type: 'error', message: err.message || String(err) });
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 export async function apiStorefrontVerifyOTP(email, phone, code) {
   const res = await fetch(`${API_BASE}/storefront/orders/verify`, {
     method: 'POST',

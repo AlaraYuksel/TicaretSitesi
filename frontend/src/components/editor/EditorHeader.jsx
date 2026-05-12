@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEditorStore, BREAKPOINTS, BREAKPOINT_ORDER, getElementBounds } from '../../store/useEditorStore';
+import AISiteBuilderModal from './AISiteBuilderModal';
 
 const BP_COLORS = { desktop: '#4b8eff', tablet: '#a855f7', mobile: '#10b981' };
 
@@ -557,6 +558,7 @@ ${pagesHTML}
 export default function EditorHeader({ siteId, siteTitle }) {
   const navigate = useNavigate();
   const [showExport, setShowExport] = useState(false);
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [publishStatus, setPublishStatus] = useState('idle');
   const [ecomWarning, setEcomWarning] = useState(null); // { missing: [...] }
@@ -710,7 +712,21 @@ export default function EditorHeader({ siteId, siteTitle }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>{canvasWidth} × {Math.round(canvasHeight)}</span>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />
-        
+
+        {/* AI Site Builder Button */}
+        <button onClick={() => setShowAIBuilder(true)} style={{
+          background: 'linear-gradient(135deg, #4b8eff 0%, #8b5cf6 100%)',
+          border: 'none', color: '#fff', borderRadius: 8, padding: '7px 14px',
+          cursor: 'pointer', fontSize: 12, fontWeight: 700,
+          display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+          boxShadow: '0 2px 12px rgba(75,142,255,0.25)',
+        }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>auto_awesome</span>
+          AI ile Tasarla
+        </button>
+
         {/* Save Button */}
         <button onClick={handleSave} disabled={saveStatus === 'saving'} style={{ 
           background: 'none', border: '1px solid rgba(255,255,255,0.08)', 
@@ -762,6 +778,11 @@ export default function EditorHeader({ siteId, siteTitle }) {
         />
       </div>
     </header>
+
+    {/* ── AI Site Builder Modalı ──────────────────────────────────────────── */}
+    {showAIBuilder && (
+      <AISiteBuilderModal siteId={siteId} onClose={() => setShowAIBuilder(false)} />
+    )}
 
     {/* ── E-Ticaret Zorunlu Tool Uyarı Modalı ────────────────────────────── */}
     {ecomWarning && (

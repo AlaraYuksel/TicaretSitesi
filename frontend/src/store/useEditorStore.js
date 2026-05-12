@@ -691,6 +691,23 @@ export const useEditorStore = create((set, get) => {
       set(s => ({ pages: [...s.pages, newPage], activePageId: newPage.id, selectedId: null }));
     },
     switchPage: (id) => set({ activePageId: id, selectedId: null, selectedChildId: null, activeContainerId: null }),
+
+    // ── AI Site Builder — agent'ın ürettiği site_data'yı canvas'a yükler.
+    loadSiteData: (siteData) => {
+      const pages = (siteData?.pages && siteData.pages.length > 0)
+        ? siteData.pages
+        : [createPage('Home')];
+      set({
+        pages,
+        activePageId: pages[0].id,
+        selectedId: null,
+        selectedChildId: null,
+        activeContainerId: null,
+        history: [],
+        historyIndex: -1,
+        ...(siteData?.canvasHeights ? { canvasHeights: siteData.canvasHeights } : {}),
+      });
+    },
     reorderPages: (fromIdx, toIdx) => {
       set(s => {
         const arr = [...s.pages];

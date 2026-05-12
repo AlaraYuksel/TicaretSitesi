@@ -53,6 +53,14 @@ func main() {
 	storefrontHandler := handler.NewStorefrontHandler(store)
 	marketplaceHandler := handler.NewMarketplaceHandler(store)
 
+	// ── AI Handler'ı (Gemini) ─────────────────────────────────────────────────
+	// GEMINI_API_KEY ortam değişkeni boşsa AI özellikleri devre dışı kalır;
+	// uygulamanın geri kalanı normal çalışmaya devam eder.
+	aiSiteBuilderHandler, aiErr := handler.NewAISiteBuilderHandler(store)
+	if aiErr != nil {
+		log.Printf("AI Site Builder devre dışı: %v", aiErr)
+	}
+
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
 	// 🔄 COGNITO_SWITCH: Lokal JWT auth.
 	// Cognito'ya geçildiğinde:
@@ -118,6 +126,13 @@ func main() {
 	mux.HandleFunc("GET /api/marketplace/categories", marketplaceHandler.ListCategories)
 	mux.HandleFunc("POST /api/marketplace/orders", marketplaceHandler.CreateOrder)
 	mux.HandleFunc("GET /api/marketplace/orders/{orderNumber}", marketplaceHandler.GetOrder)
+
+	// ── 🤖 AI Site Builder (Gemini) ──────────────────────────────────────────
+	// Sadece GEMINI_API_KEY varsa kayıtlı; yoksa route'lar 404 döner.
+	if aiSiteBuilderHandler != nil {
+		mux.Handle("POST /api/ai/build-site/plan", auth(http.HandlerFunc(aiSiteBuilderHandler.PlanSite)))
+		mux.Handle("POST /api/ai/build-site/execute", auth(http.HandlerFunc(aiSiteBuilderHandler.ExecutePlan)))
+	}
 
 	// ── Domain Serving ───────────────────────────────────────────────────────
 	// Tüm diğer istekler → Host header'dan subdomain/custom domain bul → site serve et
