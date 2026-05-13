@@ -60,11 +60,16 @@ type User struct {
 	Email        string     `json:"email"`
 	FullName     *string    `json:"full_name,omitempty"`
 	AvatarURL    *string    `json:"avatar_url,omitempty"`
+	Phone        *string    `json:"phone,omitempty"`
 	Plan         string     `json:"plan"`
 	StorageUsed  int64      `json:"storage_used"`
 	StorageLimit int64      `json:"storage_limit"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// Marketplace alıcı tarafı. Stripe Customer (cus_*) ilk kart eklenirken yaratılır.
+	// Frontend'e sızdırılmaz ama backend handler'larında gerekir.
+	StripeCustomerID *string `json:"-"`
 
 	// 🔄 COGNITO_SWITCH: Lokal auth için. Cognito'da bu alan yok.
 	PasswordHash *string    `json:"-"`
@@ -362,14 +367,16 @@ func (s *Store) UpsertUser(ctx context.Context, cognitoSub, email string) (*User
 		VALUES ($1, $2)
 		ON CONFLICT (id) DO UPDATE
 		SET email = EXCLUDED.email, updated_at = NOW()
-		RETURNING id, email, full_name, avatar_url, plan,
-		          storage_used, storage_limit, created_at, updated_at`
+		RETURNING id, email, full_name, avatar_url, phone, plan,
+		          storage_used, storage_limit, created_at, updated_at,
+		          stripe_customer_id`
 
 	row := s.pool.QueryRow(ctx, q, cognitoSub, email)
 	var u User
 	err := row.Scan(
-		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Phone, &u.Plan,
 		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+		&u.StripeCustomerID,
 	)
 	return &u, err
 }
@@ -382,14 +389,16 @@ func (s *Store) CreateUserLocal(ctx context.Context, email, passwordHash string)
 	const q = `
 		INSERT INTO users (email, password_hash)
 		VALUES ($1, $2)
-		RETURNING id, email, full_name, avatar_url, plan,
-		          storage_used, storage_limit, created_at, updated_at`
+		RETURNING id, email, full_name, avatar_url, phone, plan,
+		          storage_used, storage_limit, created_at, updated_at,
+		          stripe_customer_id`
 
 	row := s.pool.QueryRow(ctx, q, email, passwordHash)
 	var u User
 	err := row.Scan(
-		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Phone, &u.Plan,
 		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+		&u.StripeCustomerID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("CreateUserLocal: %w", err)
@@ -400,18 +409,18 @@ func (s *Store) CreateUserLocal(ctx context.Context, email, passwordHash string)
 // GetUserByEmail — Lokal login. Email ile kullanıcı arar, password_hash döner.
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	const q = `
-		SELECT id, email, full_name, avatar_url, plan,
+		SELECT id, email, full_name, avatar_url, phone, plan,
 		       storage_used, storage_limit, created_at, updated_at,
-		       password_hash
+		       stripe_customer_id, password_hash
 		FROM users
 		WHERE email = $1`
 
 	row := s.pool.QueryRow(ctx, q, email)
 	var u User
 	err := row.Scan(
-		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Phone, &u.Plan,
 		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
-		&u.PasswordHash,
+		&u.StripeCustomerID, &u.PasswordHash,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetUserByEmail: %w", err)
@@ -422,21 +431,42 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error)
 // GetUserByID — Token'dan gelen user ID ile kullanıcıyı getirir.
 func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
 	const q = `
-		SELECT id, email, full_name, avatar_url, plan,
-		       storage_used, storage_limit, created_at, updated_at
+		SELECT id, email, full_name, avatar_url, phone, plan,
+		       storage_used, storage_limit, created_at, updated_at,
+		       stripe_customer_id
 		FROM users
 		WHERE id = $1`
 
 	row := s.pool.QueryRow(ctx, q, id)
 	var u User
 	err := row.Scan(
-		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Plan,
+		&u.ID, &u.Email, &u.FullName, &u.AvatarURL, &u.Phone, &u.Plan,
 		&u.StorageUsed, &u.StorageLimit, &u.CreatedAt, &u.UpdatedAt,
+		&u.StripeCustomerID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetUserByID: %w", err)
 	}
 	return &u, nil
+}
+
+// UpdateUserProfile — Marketplace alıcısının kendi adı/telefonunu güncellemesi için.
+func (s *Store) UpdateUserProfile(ctx context.Context, id, fullName, phone string) error {
+	const q = `
+		UPDATE users
+		SET full_name = NULLIF($2, ''),
+		    phone     = NULLIF($3, ''),
+		    updated_at = NOW()
+		WHERE id = $1`
+	_, err := s.pool.Exec(ctx, q, id, fullName, phone)
+	return err
+}
+
+// SetUserStripeCustomerID — Kart eklenirken lazy-create edilen Stripe Customer ID'yi yazar.
+func (s *Store) SetUserStripeCustomerID(ctx context.Context, userID, customerID string) error {
+	const q = `UPDATE users SET stripe_customer_id = $2, updated_at = NOW() WHERE id = $1`
+	_, err := s.pool.Exec(ctx, q, userID, customerID)
+	return err
 }
 
 // ─── Storefront Tipleri ──────────────────────────────────────────────────────

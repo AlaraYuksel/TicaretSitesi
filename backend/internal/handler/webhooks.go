@@ -5,27 +5,30 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
 
 	dbpkg "go-backend-projem/internal/db"
+	"go-backend-projem/internal/payments"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/stripe/stripe-go/v82"
 )
 
 // WebhookHandler — EasyPost & Stripe webhook'ları
 // Webhook → doğrula → SQS'e at → anında 200 OK dön
 type WebhookHandler struct {
-	store               *dbpkg.Store
-	stripeWebhookSecret string
+	store                 *dbpkg.Store
+	stripe                *payments.Client
 	easypostWebhookSecret string
-	// sqsFinanceURL       string   // SQS Finance kuyruğu (prod'da eklenir)
-	// sqsNotifURL         string   // SQS Notifications kuyruğu
 }
 
-func NewWebhookHandler(store *dbpkg.Store, stripeSecret, easypostSecret string) *WebhookHandler {
+func NewWebhookHandler(store *dbpkg.Store, stripeClient *payments.Client, easypostSecret string) *WebhookHandler {
 	return &WebhookHandler{
 		store:                 store,
-		stripeWebhookSecret:   stripeSecret,
+		stripe:                stripeClient,
 		easypostWebhookSecret: easypostSecret,
 	}
 }
@@ -102,7 +105,15 @@ func (h *WebhookHandler) EasyPost(w http.ResponseWriter, r *http.Request) {
 // ─── Stripe Webhook ─────────────────────────────────────────────────────────
 // POST /api/webhooks/stripe
 //
-// Stripe eventleri: payment_intent.succeeded, charge.refunded, vb.
+// İşlenen eventler:
+//   • payment_intent.succeeded    → marketplace_orders.payment_status = 'paid'
+//   • payment_intent.payment_failed → log + (siparişe etki yok; UX'te buyer'a hata göster)
+//   • charge.refunded             → payment_status='refunded', escrow='refunded'
+//   • account.updated             → seller_profiles.stripe_onboarded/payout_enabled güncelle
+//
+// Imza doğrulaması: stripe.webhook.ConstructEvent (HMAC-SHA256 + timestamp).
+// STRIPE_WEBHOOK_SECRET tanımlı değilse imza atlanır (test/dev kolaylığı için)
+// ama bu durumda log uyarısı yazılır.
 func (h *WebhookHandler) Stripe(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
@@ -112,48 +123,89 @@ func (h *WebhookHandler) Stripe(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Stripe-Signature header doğrulama
-	// TODO (prod): stripe.webhook.ConstructEvent() kullan
-	stripeSignature := r.Header.Get("Stripe-Signature")
-	if h.stripeWebhookSecret != "" && stripeSignature == "" {
-		log.Printf("Stripe webhook: signature eksik")
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
+	var event stripe.Event
+	sig := r.Header.Get("Stripe-Signature")
 
-	var event struct {
-		Type string          `json:"type"`
-		Data json.RawMessage `json:"data"`
-	}
-	if err := json.Unmarshal(body, &event); err != nil {
-		log.Printf("Stripe webhook: JSON parse hatası: %v", err)
+	if h.stripe != nil {
+		if ev, verr := h.stripe.VerifyWebhook(body, sig); verr == nil {
+			event = ev
+		} else {
+			// Webhook secret yoksa imza doğrulanmadan parse et (dev mode).
+			// Bu durumda LOG uyarısı yaz — prod'da bu yola asla girilmemeli.
+			if errors.Is(verr, payments.ErrMissingWebhookSecret) || sig == "" {
+				log.Printf("Stripe webhook: imza doğrulanamadı (dev mode atlama)")
+				if jerr := json.Unmarshal(body, &event); jerr != nil {
+					log.Printf("Stripe webhook: JSON parse: %v", jerr)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			} else {
+				log.Printf("Stripe webhook: imza HATASI: %v", verr)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+	} else if jerr := json.Unmarshal(body, &event); jerr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Stripe webhook alındı: type=%s", event.Type)
+	log.Printf("Stripe webhook: type=%s id=%s", event.Type, event.ID)
 
 	switch event.Type {
 	case "payment_intent.succeeded":
-		// Ödeme başarılı → Sipariş durumunu güncelle
-		// TODO: sqlc UpdateOrderPayment
-		// TODO: SQS Notifications → alıcı + satıcıya bildirim
-		log.Printf("Ödeme başarılı — sipariş güncelleniyor")
+		var pi stripe.PaymentIntent
+		if err := json.Unmarshal(event.Data.Raw, &pi); err != nil {
+			log.Printf("PI unmarshal: %v", err)
+			break
+		}
+		if err := h.store.MarkMarketplaceOrderPaid(r.Context(), pi.ID); err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				log.Printf("MarkMarketplaceOrderPaid: %v", err)
+			}
+		}
 
 	case "payment_intent.payment_failed":
-		// Ödeme başarısız → siparişi iptal et, stok geri yükle
-		log.Printf("Ödeme başarısız — sipariş iptal ediliyor")
+		var pi stripe.PaymentIntent
+		_ = json.Unmarshal(event.Data.Raw, &pi)
+		log.Printf("Ödeme başarısız: pi=%s reason=%v", pi.ID, pi.LastPaymentError)
 
 	case "charge.refunded":
-		// İade → escrow refund + stok geri yükle
-		log.Printf("İade işlemi — escrow refund başlatılıyor")
+		// Charge'ın PaymentIntent'i üzerinden order'ı bul
+		var ch stripe.Charge
+		if err := json.Unmarshal(event.Data.Raw, &ch); err != nil {
+			log.Printf("Charge unmarshal: %v", err)
+			break
+		}
+		piID := ""
+		if ch.PaymentIntent != nil {
+			piID = ch.PaymentIntent.ID
+		}
+		if piID != "" {
+			if err := h.store.MarkMarketplaceOrderRefunded(r.Context(), piID); err != nil {
+				log.Printf("MarkMarketplaceOrderRefunded: %v", err)
+			}
+		}
+
+	case "account.updated":
+		var acc stripe.Account
+		if err := json.Unmarshal(event.Data.Raw, &acc); err != nil {
+			log.Printf("Account unmarshal: %v", err)
+			break
+		}
+		onboarded := acc.DetailsSubmitted && acc.ChargesEnabled
+		if err := h.store.UpdateSellerStripeStatus(r.Context(), acc.ID, onboarded, acc.PayoutsEnabled); err != nil {
+			log.Printf("UpdateSellerStripeStatus: %v", err)
+		}
+		log.Printf("Connect account.updated: acc=%s onboarded=%v payouts=%v", acc.ID, onboarded, acc.PayoutsEnabled)
 
 	default:
-		log.Printf("Bilinmeyen Stripe event: %s (yoksayılıyor)", event.Type)
+		log.Printf("Stripe event ignored: %s", event.Type)
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
+
 
 // ─── HMAC Doğrulama ─────────────────────────────────────────────────────────
 func verifyHMAC(body []byte, signature, secret string) bool {

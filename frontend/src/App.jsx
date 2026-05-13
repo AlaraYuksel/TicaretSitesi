@@ -13,9 +13,14 @@ import MarketplaceProduct from './pages/MarketplaceProduct';
 import MarketplaceCart from './pages/MarketplaceCart';
 import MarketplaceCheckout from './pages/MarketplaceCheckout';
 import MarketplaceOrderSuccess from './pages/MarketplaceOrderSuccess';
+import MarketplaceAuth from './pages/MarketplaceAuth';
+import MarketplaceAccount from './pages/MarketplaceAccount';
+import SellerQuestions from './pages/SellerQuestions';
+import SellerOrders from './pages/SellerOrders';
+import SellerBalance from './pages/SellerBalance';
 
 // ─── Route Guard: Giriş yapmamış kullanıcıyı Auth'a yönlendir ───────────────
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, redirectTo = '/' }) {
   const { user, isLoading, checkAuth } = useAuthStore();
 
   useEffect(() => {
@@ -26,7 +31,7 @@ function ProtectedRoute({ children }) {
 
   // Token yoksa direkt auth'a gönder
   if (!isAuthenticated()) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   // Token var ama user henüz yüklenmedi → loading
@@ -71,6 +76,15 @@ function App() {
         <Route path="/marketplace/cart" element={<MarketplaceCart />} />
         <Route path="/marketplace/checkout" element={<MarketplaceCheckout />} />
         <Route path="/marketplace/order/:orderNumber" element={<MarketplaceOrderSuccess />} />
+        <Route path="/marketplace/auth" element={<MarketplaceAuth />} />
+        <Route path="/marketplace/account" element={
+          <ProtectedRoute redirectTo="/marketplace/auth"><MarketplaceAccount /></ProtectedRoute>
+        } />
+
+        {/* Satıcı dashboard alt sayfaları */}
+        <Route path="/dashboard/questions" element={<ProtectedRoute><SellerQuestions /></ProtectedRoute>} />
+        <Route path="/dashboard/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
+        <Route path="/dashboard/balance" element={<ProtectedRoute><SellerBalance /></ProtectedRoute>} />
         
         {/* Dashboard sayfası — auth gerekli */}
         <Route path="/dashboard" element={

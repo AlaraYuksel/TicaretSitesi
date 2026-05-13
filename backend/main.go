@@ -14,6 +14,7 @@ import (
 	dbpkg "go-backend-projem/internal/db"
 	"go-backend-projem/internal/handler"
 	"go-backend-projem/internal/middleware"
+	"go-backend-projem/internal/payments"
 )
 
 func main() {
@@ -45,13 +46,24 @@ func main() {
 	// register/login işlemleri Cognito hosted UI'a bırakılır.
 	authHandler := handler.NewAuthHandler(store, cfg.JWTSecret)
 
+	// ── Stripe (test mode) — secret yoksa Configured()==false, handler'lar 503 döner.
+	stripeClient := payments.NewClient(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.PlatformFeePercent)
+	if stripeClient.Configured() {
+		log.Printf("Stripe yapılandırıldı (komisyon: %%%d, escrow %d gün)", cfg.PlatformFeePercent, cfg.EscrowReleaseDays)
+	} else {
+		log.Println("Stripe yapılandırılmadı — ödeme akışları devre dışı")
+	}
+
 	// ── E-Ticaret Handler'ları ────────────────────────────────────────────────
 	productHandler := handler.NewProductHandler(store)
 	orderHandler := handler.NewOrderHandler(store)
-	sellerHandler := handler.NewSellerHandler(store)
-	webhookHandler := handler.NewWebhookHandler(store, "", "") // TODO: env'den stripe/easypost secret al
+	sellerHandler := handler.NewSellerHandler(store, stripeClient, cfg)
+	webhookHandler := handler.NewWebhookHandler(store, stripeClient, os.Getenv("EASYPOST_WEBHOOK_SECRET"))
 	storefrontHandler := handler.NewStorefrontHandler(store)
-	marketplaceHandler := handler.NewMarketplaceHandler(store)
+	marketplaceHandler := handler.NewMarketplaceHandler(store, stripeClient, cfg.JWTSecret)
+	buyerHandler := handler.NewBuyerHandler(store, stripeClient)
+	questionsHandler := handler.NewQuestionsHandler(store)
+	sellerOrdersHandler := handler.NewSellerOrdersHandler(store, stripeClient, cfg)
 
 	// ── AI Handler'ı (Gemini) ─────────────────────────────────────────────────
 	// GEMINI_API_KEY ortam değişkeni boşsa AI özellikleri devre dışı kalır;
@@ -126,6 +138,38 @@ func main() {
 	mux.HandleFunc("GET /api/marketplace/categories", marketplaceHandler.ListCategories)
 	mux.HandleFunc("POST /api/marketplace/orders", marketplaceHandler.CreateOrder)
 	mux.HandleFunc("GET /api/marketplace/orders/{orderNumber}", marketplaceHandler.GetOrder)
+
+	// ── 👤 Marketplace Alıcı: profil / adresler / kayıtlı kartlar (auth) ─────
+	mux.Handle("PUT /api/buyer/profile", auth(http.HandlerFunc(buyerHandler.UpdateProfile)))
+
+	mux.Handle("GET /api/buyer/addresses", auth(http.HandlerFunc(buyerHandler.ListAddresses)))
+	mux.Handle("POST /api/buyer/addresses", auth(http.HandlerFunc(buyerHandler.CreateAddress)))
+	mux.Handle("PUT /api/buyer/addresses/{id}", auth(http.HandlerFunc(buyerHandler.UpdateAddress)))
+	mux.Handle("DELETE /api/buyer/addresses/{id}", auth(http.HandlerFunc(buyerHandler.DeleteAddress)))
+	mux.Handle("PUT /api/buyer/addresses/{id}/default", auth(http.HandlerFunc(buyerHandler.SetDefaultAddress)))
+
+	mux.Handle("POST /api/buyer/payment-methods/setup-intent", auth(http.HandlerFunc(buyerHandler.CreateSetupIntent)))
+	mux.Handle("GET /api/buyer/payment-methods", auth(http.HandlerFunc(buyerHandler.ListPaymentMethods)))
+	mux.Handle("POST /api/buyer/payment-methods", auth(http.HandlerFunc(buyerHandler.AttachPaymentMethod)))
+	mux.Handle("DELETE /api/buyer/payment-methods/{id}", auth(http.HandlerFunc(buyerHandler.DeletePaymentMethod)))
+	mux.Handle("PUT /api/buyer/payment-methods/{id}/default", auth(http.HandlerFunc(buyerHandler.SetDefaultPaymentMethod)))
+	mux.Handle("GET /api/buyer/orders", auth(http.HandlerFunc(marketplaceHandler.ListMyOrders)))
+
+	// ── ❓ Ürün Soruları (Q&A) ───────────────────────────────────────────────
+	mux.HandleFunc("GET /api/marketplace/products/{id}/questions", questionsHandler.PublicList)
+	mux.Handle("POST /api/marketplace/products/{id}/questions", auth(http.HandlerFunc(questionsHandler.Ask)))
+	mux.Handle("GET /api/seller/questions", auth(http.HandlerFunc(questionsHandler.SellerList)))
+	mux.Handle("POST /api/seller/questions/{id}/answer", auth(http.HandlerFunc(questionsHandler.Answer)))
+
+	// ── 📦 Satıcı Marketplace Sipariş Yönetimi ───────────────────────────────
+	mux.Handle("GET /api/seller/marketplace-orders", auth(http.HandlerFunc(sellerOrdersHandler.List)))
+	mux.Handle("GET /api/seller/marketplace-orders/{id}", auth(http.HandlerFunc(sellerOrdersHandler.Get)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/approve", auth(http.HandlerFunc(sellerOrdersHandler.Approve)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/reject", auth(http.HandlerFunc(sellerOrdersHandler.Reject)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/ship", auth(http.HandlerFunc(sellerOrdersHandler.Ship)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/mark-delivered", auth(http.HandlerFunc(sellerOrdersHandler.MarkDelivered)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/release-escrow", auth(http.HandlerFunc(sellerOrdersHandler.ReleaseEscrow)))
+	mux.Handle("GET /api/seller/balance", auth(http.HandlerFunc(sellerOrdersHandler.Balance)))
 
 	// ── 🤖 AI Site Builder (Gemini) ──────────────────────────────────────────
 	// Sadece GEMINI_API_KEY varsa kayıtlı; yoksa route'lar 404 döner.

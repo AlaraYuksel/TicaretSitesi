@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,17 +12,23 @@ import (
 	"time"
 
 	dbpkg "go-backend-projem/internal/db"
+	"go-backend-projem/internal/middleware"
+	"go-backend-projem/internal/payments"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // MarketplaceHandler — Publish edilmiş tüm sitelerin ürünlerini içeren marketplace.
 type MarketplaceHandler struct {
-	store *dbpkg.Store
+	store     *dbpkg.Store
+	stripe    *payments.Client
+	jwtSecret string
 }
 
-func NewMarketplaceHandler(store *dbpkg.Store) *MarketplaceHandler {
-	return &MarketplaceHandler{store: store}
+func NewMarketplaceHandler(store *dbpkg.Store, stripe *payments.Client, jwtSecret string) *MarketplaceHandler {
+	return &MarketplaceHandler{store: store, stripe: stripe, jwtSecret: jwtSecret}
 }
 
 // ─── DTO ────────────────────────────────────────────────────────────────────
@@ -119,18 +126,29 @@ func (h *MarketplaceHandler) ListProducts(w http.ResponseWriter, r *http.Request
 }
 
 // GetProduct — GET /api/marketplace/products/{id}
+// Yanıta cevaplanmış sorular (Q&A) eklenir; en güncel 10 tanesi.
 func (h *MarketplaceHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := uuid.Parse(id); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçersiz ürün ID"})
+		writeError(w, http.StatusBadRequest, "Geçersiz ürün ID")
 		return
 	}
 	pp, err := h.store.GetPublishedProductByID(r.Context(), id)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Ürün bulunamadı"})
+		writeError(w, http.StatusNotFound, "Ürün bulunamadı")
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(*pp))
+	dto := toDTO(*pp)
+	answered, qerr := h.store.ListAnsweredQuestionsByProduct(r.Context(), id, 10)
+	if qerr != nil {
+		log.Printf("ListAnsweredQuestionsByProduct: %v", qerr)
+		answered = nil
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"product":            dto,
+		"answered_questions": answered,
+	})
 }
 
 // ListCategories — GET /api/marketplace/categories
@@ -143,7 +161,7 @@ func (h *MarketplaceHandler) ListCategories(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]interface{}{"categories": cats})
 }
 
-// ─── Simüle Ödeme / Sipariş ────────────────────────────────────────────────
+// ─── Sipariş + Stripe (test mode) ──────────────────────────────────────────
 
 type marketplaceOrderItemReq struct {
 	ProductID string `json:"product_id"`
@@ -151,45 +169,146 @@ type marketplaceOrderItemReq struct {
 }
 
 type marketplaceOrderReq struct {
-	Customer GuestCustomerInfo       `json:"customer"`
+	// Auth yoksa customer/address zorunlu (guest checkout).
+	// Auth varsa frontend yine de gönderebilir; gönderilmezse profile'dan doldurulur.
+	Customer GuestCustomerInfo         `json:"customer"`
 	Items    []marketplaceOrderItemReq `json:"items"`
-	Address  GuestShippingAddress    `json:"shipping_address"`
-	Notes    string                  `json:"notes,omitempty"`
-	// Simüle ödeme bilgileri (frontend'den gelir ama kullanılmaz — sadece doğrulama)
-	PaymentMethod string `json:"payment_method"`
+	Address  GuestShippingAddress      `json:"shipping_address"`
+	Notes    string                    `json:"notes,omitempty"`
+
+	// Stripe entegrasyonu
+	PaymentMethodID string `json:"payment_method_id,omitempty"` // pm_xxx (kayıtlı veya yeni)
+	SavedAddressID  string `json:"saved_address_id,omitempty"`  // auth varsa
+	SavedPMID       string `json:"saved_payment_method_id,omitempty"` // bizim DB id
+}
+
+type marketplaceOrderResult struct {
+	OrderNumber  string `json:"order_number"`
+	OrderID      string `json:"order_id"`
+	SiteID       string `json:"site_id"`
+	Subtotal     int64  `json:"subtotal"`
+	ShippingCost int64  `json:"shipping_cost"`
+	Total        int64  `json:"total"`
+	ClientSecret string `json:"client_secret,omitempty"` // boş ise simüle (Stripe yok)
+	Simulated    bool   `json:"simulated"`
 }
 
 // CreateOrder — POST /api/marketplace/orders
-// Simüle ödeme: kart bilgisi alınmaz, gerçek ödeme yapılmaz; sipariş "paid" olarak yaratılır.
+//
+// Akış:
+//
+//   1. Optional auth: Bearer token varsa userID + email + saved address/payment method desteklenir.
+//   2. Validasyon: customer/address (guest için zorunlu), items.
+//   3. Items'ı satıcı (site_id) bazında grupla.
+//   4. Her grup için:
+//        - Subtotal + kargo (5 TL, 200 TL üstü ücretsiz)
+//        - Satıcının stripe_account_id'sini bul; varsa destination charge yap.
+//        - Stripe PaymentIntent (test mode) oluştur; client_secret döner.
+//        - Stripe yapılandırılmamışsa simüle mod: ödeme direkt 'paid' işaretlenir.
+//        - marketplace_order kaydı yaratılır (status='confirmed', approval='pending_approval').
+//   5. orders: [{order_number, client_secret}, ...] döner; frontend her birini ayrı confirm eder.
 func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var req marketplaceOrderReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçersiz istek"})
+		writeError(w, http.StatusBadRequest, "Geçersiz istek")
 		return
 	}
 
+	// ── Optional auth ──────────────────────────────────────────────────────
+	buyerUserID, buyerEmail := h.tryParseBearer(r)
+	var buyer *dbpkg.User
+	if buyerUserID != "" {
+		var err error
+		buyer, err = h.store.GetUserByID(r.Context(), buyerUserID)
+		if err != nil {
+			log.Printf("CreateOrder: GetUserByID: %v", err)
+			buyer = nil
+			buyerUserID = ""
+		}
+	}
+
+	// Saved address: auth varsa override edebilir
+	if buyerUserID != "" && req.SavedAddressID != "" {
+		a, err := h.store.GetAddress(r.Context(), req.SavedAddressID, buyerUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusBadRequest, "Seçili adres bulunamadı")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "Adres yüklenemedi")
+			return
+		}
+		req.Address.Line1 = a.Line1
+		req.Address.City = a.City
+		if a.Line2 != nil {
+			req.Address.Line2 = *a.Line2
+		}
+		if a.State != nil {
+			req.Address.State = *a.State
+		}
+		if a.Zip != nil {
+			req.Address.ZipCode = *a.Zip
+		}
+		req.Address.Country = a.Country
+		if req.Customer.Name == "" {
+			req.Customer.Name = a.RecipientName
+		}
+		if req.Customer.Phone == "" {
+			req.Customer.Phone = a.Phone
+		}
+	}
+
+	// Saved payment method ID → Stripe pm_xxx çöz
+	if buyerUserID != "" && req.SavedPMID != "" && req.PaymentMethodID == "" {
+		pm, err := h.store.GetPaymentMethod(r.Context(), req.SavedPMID, buyerUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusBadRequest, "Seçili kart bulunamadı")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "Kart yüklenemedi")
+			return
+		}
+		req.PaymentMethodID = pm.StripePaymentMethodID
+	}
+
+	// Email/phone otomatik doldur
+	if buyer != nil {
+		if req.Customer.Email == "" {
+			req.Customer.Email = buyer.Email
+		}
+		if req.Customer.Phone == "" && buyer.Phone != nil {
+			req.Customer.Phone = *buyer.Phone
+		}
+		if req.Customer.Name == "" && buyer.FullName != nil {
+			req.Customer.Name = *buyer.FullName
+		}
+	}
+	_ = buyerEmail // şu an kullanılmıyor
+
+	// ── Validasyon ─────────────────────────────────────────────────────────
 	if !validateEmail(req.Customer.Email) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçerli bir e-posta adresi giriniz"})
+		writeError(w, http.StatusBadRequest, "Geçerli bir e-posta adresi giriniz")
 		return
 	}
 	if !validatePhone(req.Customer.Phone) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçerli bir telefon numarası giriniz"})
+		writeError(w, http.StatusBadRequest, "Geçerli bir telefon numarası giriniz")
 		return
 	}
 	if strings.TrimSpace(req.Customer.Name) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Ad soyad zorunludur"})
+		writeError(w, http.StatusBadRequest, "Ad soyad zorunludur")
 		return
 	}
 	if len(req.Items) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Sepet boş olamaz"})
+		writeError(w, http.StatusBadRequest, "Sepet boş olamaz")
 		return
 	}
 	if strings.TrimSpace(req.Address.Line1) == "" || strings.TrimSpace(req.Address.City) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Adres bilgileri eksik"})
+		writeError(w, http.StatusBadRequest, "Adres bilgileri eksik")
 		return
 	}
 
-	// Ürünleri DB'den çek → fiyat doğrulaması (client'a güvenme)
+	// ── Snapshot + site_id'ye göre grupla ─────────────────────────────────
 	type snapshotItem struct {
 		ProductID string `json:"product_id"`
 		SiteID    string `json:"site_id"`
@@ -200,20 +319,20 @@ func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request)
 		Seller    string `json:"seller,omitempty"`
 	}
 
-	var snapshot []snapshotItem
-	var subtotal int64
+	bySite := map[string][]snapshotItem{}
+	sellerNameBySite := map[string]string{}
 	for _, it := range req.Items {
 		if it.Quantity <= 0 || it.Quantity > 100 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçersiz miktar"})
+			writeError(w, http.StatusBadRequest, "Geçersiz miktar")
 			return
 		}
 		if _, err := uuid.Parse(it.ProductID); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Geçersiz ürün ID"})
+			writeError(w, http.StatusBadRequest, "Geçersiz ürün ID")
 			return
 		}
 		pp, err := h.store.GetPublishedProductByID(r.Context(), it.ProductID)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Ürün artık mevcut değil: " + it.ProductID})
+			writeError(w, http.StatusBadRequest, "Ürün artık mevcut değil: "+it.ProductID)
 			return
 		}
 		image := ""
@@ -224,57 +343,135 @@ func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request)
 		if pp.StoreName != nil {
 			seller = *pp.StoreName
 		}
-		snapshot = append(snapshot, snapshotItem{
+		bySite[pp.SiteID] = append(bySite[pp.SiteID], snapshotItem{
 			ProductID: pp.ID, SiteID: pp.SiteID, Title: pp.Title,
 			Price: pp.Price, Quantity: it.Quantity, Image: image, Seller: seller,
 		})
-		subtotal += pp.Price * int64(it.Quantity)
+		if seller != "" {
+			sellerNameBySite[pp.SiteID] = seller
+		}
 	}
 
-	// Kargo: 5 TL, 200 TL üstü ücretsiz
-	var shippingCost int64 = 500
-	if subtotal >= 20000 {
-		shippingCost = 0
-	}
-	total := subtotal + shippingCost
-
-	itemsJSON, _ := json.Marshal(snapshot)
 	addressJSON, _ := json.Marshal(req.Address)
 
-	orderNumber := fmt.Sprintf("MP-%s-%s",
-		time.Now().Format("20060102"),
-		strings.ToUpper(uuid.New().String()[:6]),
-	)
-
-	order, err := h.store.CreateMarketplaceOrder(r.Context(), dbpkg.CreateMarketplaceOrderParams{
-		OrderNumber:     orderNumber,
-		CustomerEmail:   strings.ToLower(strings.TrimSpace(req.Customer.Email)),
-		CustomerPhone:   cleanPhone(req.Customer.Phone),
-		CustomerName:    strings.TrimSpace(req.Customer.Name),
-		Items:           itemsJSON,
-		Subtotal:        subtotal,
-		ShippingCost:    shippingCost,
-		TotalAmount:     total,
-		ShippingAddress: addressJSON,
-		Notes:           req.Notes,
-	})
-	if err != nil {
-		log.Printf("CreateMarketplaceOrder: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Sipariş oluşturulamadı"})
-		return
+	// Customer (Stripe) — auth varsa lazy-create
+	var customerID string
+	if buyer != nil && h.stripe.Configured() {
+		if buyer.StripeCustomerID != nil && *buyer.StripeCustomerID != "" {
+			customerID = *buyer.StripeCustomerID
+		} else {
+			cid, err := h.stripe.CreateCustomer(r.Context(), buyer.Email, derefOr(buyer.FullName, ""), derefOr(buyer.Phone, ""))
+			if err != nil {
+				log.Printf("CreateCustomer: %v", err)
+			} else {
+				_ = h.store.SetUserStripeCustomerID(r.Context(), buyer.ID, cid)
+				customerID = cid
+			}
+		}
 	}
 
-	log.Printf("✅ Marketplace siparişi (simüle ödeme): %s total=%d kuruş",
-		orderNumber, total)
+	// ── Her satıcı için ayrı sipariş + PaymentIntent ─────────────────────
+	results := make([]marketplaceOrderResult, 0, len(bySite))
+	for siteID, items := range bySite {
+		var subtotal int64
+		for _, it := range items {
+			subtotal += it.Price * int64(it.Quantity)
+		}
+		var shippingCost int64 = 500
+		if subtotal >= 20000 {
+			shippingCost = 0
+		}
+		total := subtotal + shippingCost
 
-	writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"message":       "Siparişiniz oluşturuldu (simüle ödeme).",
-		"order_number":  order.OrderNumber,
-		"order_id":      order.ID,
-		"subtotal":      subtotal,
-		"shipping_cost": shippingCost,
-		"total_amount":  total,
-		"currency":      "TRY",
+		itemsJSON, _ := json.Marshal(items)
+		orderNumber := fmt.Sprintf("MP-%s-%s",
+			time.Now().Format("20060102"),
+			strings.ToUpper(uuid.New().String()[:6]),
+		)
+
+		// Stripe PaymentIntent (varsa)
+		var (
+			piID         string
+			clientSecret string
+			simulated    bool
+		)
+		if h.stripe.Configured() {
+			// Connected account lookup — yoksa düz ödeme (test/dev için pragmatik).
+			connectedAcct, onboarded, _ := h.store.GetSellerStripeAccountForSite(r.Context(), siteID)
+			if !onboarded {
+				connectedAcct = ""
+			}
+			var fee int64
+			if connectedAcct != "" {
+				fee = h.stripe.PlatformFeeFor(total)
+			}
+			pi, err := h.stripe.CreatePaymentIntent(r.Context(), payments.PaymentIntentParams{
+				Amount:             total,
+				Currency:           "try",
+				CustomerID:         customerID,
+				PaymentMethodID:    req.PaymentMethodID, // pm_xxx; frontend confirm eder
+				ConnectedAccountID: connectedAcct,
+				ApplicationFee:     fee,
+				Description:        "Marketplace order " + orderNumber,
+				Metadata: map[string]string{
+					"order_number": orderNumber,
+					"site_id":      siteID,
+				},
+			})
+			if err != nil {
+				log.Printf("PaymentIntent (%s): %v", orderNumber, err)
+				writeError(w, http.StatusBadGateway, "Ödeme başlatılamadı")
+				return
+			}
+			piID = pi.ID
+			clientSecret = pi.ClientSecret
+		} else {
+			simulated = true
+		}
+
+		params := dbpkg.CreateMarketplaceOrderParams{
+			OrderNumber:           orderNumber,
+			BuyerID:               buyerUserID,
+			SiteID:                siteID,
+			CustomerEmail:         strings.ToLower(strings.TrimSpace(req.Customer.Email)),
+			CustomerPhone:         cleanPhone(req.Customer.Phone),
+			CustomerName:          strings.TrimSpace(req.Customer.Name),
+			Items:                 itemsJSON,
+			Subtotal:              subtotal,
+			ShippingCost:          shippingCost,
+			TotalAmount:           total,
+			ShippingAddress:       addressJSON,
+			Notes:                 req.Notes,
+			StripePaymentIntentID: piID,
+		}
+		order, err := h.store.CreateMarketplaceOrder(r.Context(), params)
+		if err != nil {
+			log.Printf("CreateMarketplaceOrder: %v", err)
+			writeError(w, http.StatusInternalServerError, "Sipariş oluşturulamadı")
+			return
+		}
+
+		// Simüle mod: Stripe yapılandırılmamış → payment_status'u direkt 'paid' yap.
+		if simulated {
+			_ = h.store.MarkMarketplaceOrderPaidByID(r.Context(), order.ID)
+		}
+
+		results = append(results, marketplaceOrderResult{
+			OrderNumber:  order.OrderNumber,
+			OrderID:      order.ID,
+			SiteID:       siteID,
+			Subtotal:     subtotal,
+			ShippingCost: shippingCost,
+			Total:        total,
+			ClientSecret: clientSecret,
+			Simulated:    simulated,
+		})
+
+		log.Printf("📦 Marketplace siparişi: %s site=%s total=%d pi=%s", orderNumber, siteID, total, piID)
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"orders": results,
 	})
 }
 
@@ -282,15 +479,62 @@ func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request)
 func (h *MarketplaceHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	orderNumber := r.PathValue("orderNumber")
 	if orderNumber == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Sipariş numarası gerekli"})
+		writeError(w, http.StatusBadRequest, "Sipariş numarası gerekli")
 		return
 	}
 	order, err := h.store.GetMarketplaceOrderByNumber(r.Context(), orderNumber)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Sipariş bulunamadı"})
+		writeError(w, http.StatusNotFound, "Sipariş bulunamadı")
 		return
 	}
 	writeJSON(w, http.StatusOK, order)
+}
+
+// ListMyOrders — GET /api/buyer/orders — auth'lu alıcının sipariş geçmişi.
+func (h *MarketplaceHandler) ListMyOrders(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	orders, err := h.store.ListMarketplaceOrdersBuyer(r.Context(), userID)
+	if err != nil {
+		log.Printf("ListMarketplaceOrdersBuyer: %v", err)
+		writeError(w, http.StatusInternalServerError, "Siparişler yüklenemedi")
+		return
+	}
+	writeJSON(w, http.StatusOK, orders)
+}
+
+// ─── Yardımcılar ───────────────────────────────────────────────────────────
+
+// tryParseBearer — Bearer header varsa user_id + email döndürür; yoksa boş.
+// JWT auth middleware'in aksine eksik/geçersiz token'da hata fırlatmaz.
+func (h *MarketplaceHandler) tryParseBearer(r *http.Request) (userID, email string) {
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", ""
+	}
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(h.jwtSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return "", ""
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", ""
+	}
+	userID, _ = claims["sub"].(string)
+	email, _ = claims["email"].(string)
+	return userID, email
+}
+
+func derefOr(p *string, def string) string {
+	if p == nil {
+		return def
+	}
+	return *p
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiMarketplaceGetProduct } from '../lib/api';
+import {
+  apiMarketplaceGetProductFull, apiMarketplaceListQuestions, apiMarketplaceAskQuestion,
+  isAuthenticated,
+} from '../lib/api';
 import { useCartStore } from '../store/useCartStore';
 
 const formatPrice = (cents, currency = 'TRY') => {
@@ -12,6 +15,7 @@ export default function MarketplaceProduct() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [qty, setQty] = useState(1);
@@ -20,10 +24,17 @@ export default function MarketplaceProduct() {
   const addToCart = useCartStore(s => s.addItem);
   const cartCount = useCartStore(s => s.getItemCount());
 
+  const reloadQuestions = async () => {
+    try { setQuestions(await apiMarketplaceListQuestions(id)); } catch {}
+  };
+
   useEffect(() => {
     setLoading(true);
-    apiMarketplaceGetProduct(id)
-      .then(setProduct)
+    apiMarketplaceGetProductFull(id)
+      .then(data => {
+        setProduct(data.product);
+        setQuestions(data.answered_questions || []);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -68,22 +79,32 @@ export default function MarketplaceProduct() {
             fontSize: 20, fontWeight: 700, color: '#191c1e', textDecoration: 'none',
             fontFamily: "'Hanken Grotesk', sans-serif",
           }}>MARKETPLACE</a>
-          <button
-            onClick={() => navigate('/marketplace/cart')}
-            style={{
-              position: 'relative', background: 'none', border: 'none',
-              cursor: 'pointer', color: '#5d5f5f',
-            }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>shopping_bag</span>
-            {cartCount > 0 && (
-              <span style={{
-                position: 'absolute', top: -4, right: -6,
-                background: '#121926', color: '#fff', fontSize: 9, fontWeight: 800,
-                width: 16, height: 16, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>{cartCount}</span>
-            )}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <a href={isAuthenticated() ? '/marketplace/account' : '/marketplace/auth'}
+              style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                color: '#5d5f5f', textDecoration: 'none',
+                fontFamily: "'Hanken Grotesk', sans-serif",
+              }}>
+              {isAuthenticated() ? 'HESABIM' : 'GİRİŞ YAP'}
+            </a>
+            <button
+              onClick={() => navigate('/marketplace/cart')}
+              style={{
+                position: 'relative', background: 'none', border: 'none',
+                cursor: 'pointer', color: '#5d5f5f',
+              }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>shopping_bag</span>
+              {cartCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -6,
+                  background: '#121926', color: '#fff', fontSize: 9, fontWeight: 800,
+                  width: 16, height: 16, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{cartCount}</span>
+              )}
+            </button>
+          </div>
         </nav>
       </header>
 
@@ -238,8 +259,104 @@ export default function MarketplaceProduct() {
             </div>
           </div>
         </div>
+
+        {/* Sorular ve Cevaplar */}
+        <QASection
+          productId={id}
+          questions={questions}
+          onAsked={reloadQuestions}
+        />
       </div>
     </div>
+  );
+}
+
+function QASection({ productId, questions, onAsked }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const submit = async () => {
+    if (text.trim().length < 5) { setMsg({ ok: false, text: 'Soru çok kısa' }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      await apiMarketplaceAskQuestion(productId, text.trim());
+      setText('');
+      setMsg({ ok: true, text: 'Sorunuz satıcıya iletildi. Cevaplandığında bu sayfada göreceksiniz.' });
+      onAsked();
+    } catch (e) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <section style={{ marginTop: 80 }}>
+      <h2 style={{
+        fontSize: 22, fontWeight: 700, margin: '0 0 24px',
+        fontFamily: "'Hanken Grotesk', sans-serif", color: '#191c1e',
+      }}>Sorular ve Cevaplar</h2>
+
+      {/* Soru sorma */}
+      <div style={{ background: '#fff', border: '1px solid #c4c7c8', padding: 20, marginBottom: 24 }}>
+        {!isAuthenticated() ? (
+          <p style={{ margin: 0, color: '#5d5f5f', fontSize: 14 }}>
+            Soru sormak için <a href={`/marketplace/auth?next=/marketplace/product/${productId}`} style={{ color: '#121926', fontWeight: 600 }}>giriş yapın</a>.
+          </p>
+        ) : (
+          <>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#5d5f5f', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              Satıcıya soru sor
+            </p>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              rows={3}
+              placeholder="Ürün hakkında merak ettiğiniz şey..."
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                border: '1px solid #c4c7c8', padding: 12, fontSize: 14,
+                fontFamily: 'inherit', resize: 'vertical',
+              }}
+            />
+            {msg && (
+              <div style={{
+                marginTop: 8, padding: '8px 12px', fontSize: 13,
+                background: msg.ok ? '#dcfce7' : '#fee2e2',
+                color: msg.ok ? '#14532d' : '#7f1d1d',
+                border: `1px solid ${msg.ok ? '#86efac' : '#fecaca'}`,
+              }}>{msg.text}</div>
+            )}
+            <button onClick={submit} disabled={busy} style={{
+              marginTop: 12, background: '#121926', color: '#fff', border: 'none',
+              padding: '12px 20px', fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
+              cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1,
+              fontFamily: "'Hanken Grotesk', sans-serif",
+            }}>{busy ? 'GÖNDERİLİYOR...' : 'SORUYU GÖNDER'}</button>
+          </>
+        )}
+      </div>
+
+      {/* Cevaplanmış sorular */}
+      {questions.length === 0 ? (
+        <p style={{ color: '#747878', fontSize: 14 }}>Henüz cevaplanmış soru yok.</p>
+      ) : (
+        questions.map(q => (
+          <div key={q.id} style={{ background: '#fff', border: '1px solid #c4c7c8', padding: 20, marginBottom: 12 }}>
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ fontSize: 12, color: '#5d5f5f', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {q.buyer_name || 'Kullanıcı'} sordu
+              </strong>
+              <p style={{ margin: '4px 0 0', color: '#191c1e' }}>{q.question}</p>
+            </div>
+            <div style={{ paddingLeft: 16, borderLeft: '3px solid #121926' }}>
+              <strong style={{ fontSize: 12, color: '#5d5f5f', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Satıcı cevabı
+              </strong>
+              <p style={{ margin: '4px 0 0', color: '#191c1e' }}>{q.answer}</p>
+            </div>
+          </div>
+        ))
+      )}
+    </section>
   );
 }
 

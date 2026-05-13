@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   apiMarketplaceListProducts,
   apiMarketplaceListCategories,
+  isAuthenticated,
 } from '../lib/api';
 import { useCartStore } from '../store/useCartStore';
 
@@ -216,6 +217,11 @@ export default function Marketplace() {
                 }}>{cartCount}</span>
               )}
             </button>
+            <a href={isAuthenticated() ? '/marketplace/account' : '/marketplace/auth'} style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+              color: '#5d5f5f', textDecoration: 'none',
+              fontFamily: "'Hanken Grotesk', sans-serif",
+            }}>{isAuthenticated() ? 'HESABIM' : 'GİRİŞ YAP'}</a>
             <button
               onClick={() => navigate('/dashboard')}
               style={{

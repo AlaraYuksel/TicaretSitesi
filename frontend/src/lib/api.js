@@ -273,6 +273,165 @@ export function apiAIExecutePlan(planId, siteId, onEvent) {
   return () => controller.abort();
 }
 
+// ─── Marketplace Alıcı: Profil + Adresler + Kayıtlı Kartlar (Auth) ───────────
+//
+// PCI not: yeni kart ekleme akışı tamamen Stripe.js (Elements) üzerinden ilerler.
+// Backend yalnızca SetupIntent client_secret döndürür ve confirm sonrası pm_xxx
+// token'ını kaydeder. Bizim DB'de PAN/CVV asla bulunmaz — sadece brand/last4/exp.
+
+export async function apiBuyerUpdateProfile(payload) {
+  return apiFetch('/buyer/profile', { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function apiBuyerListAddresses() {
+  return apiFetch('/buyer/addresses');
+}
+
+export async function apiBuyerCreateAddress(payload) {
+  return apiFetch('/buyer/addresses', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function apiBuyerUpdateAddress(id, payload) {
+  return apiFetch(`/buyer/addresses/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function apiBuyerDeleteAddress(id) {
+  return apiFetch(`/buyer/addresses/${id}`, { method: 'DELETE' });
+}
+
+export async function apiBuyerSetDefaultAddress(id) {
+  return apiFetch(`/buyer/addresses/${id}/default`, { method: 'PUT' });
+}
+
+export async function apiBuyerCreateSetupIntent() {
+  return apiFetch('/buyer/payment-methods/setup-intent', { method: 'POST' });
+}
+
+export async function apiBuyerListPaymentMethods() {
+  return apiFetch('/buyer/payment-methods');
+}
+
+export async function apiBuyerAttachPaymentMethod(stripePaymentMethodID, setAsDefault = false) {
+  return apiFetch('/buyer/payment-methods', {
+    method: 'POST',
+    body: JSON.stringify({ stripe_payment_method_id: stripePaymentMethodID, set_as_default: setAsDefault }),
+  });
+}
+
+export async function apiBuyerDeletePaymentMethod(id) {
+  return apiFetch(`/buyer/payment-methods/${id}`, { method: 'DELETE' });
+}
+
+export async function apiBuyerSetDefaultPaymentMethod(id) {
+  return apiFetch(`/buyer/payment-methods/${id}/default`, { method: 'PUT' });
+}
+
+export async function apiBuyerListOrders() {
+  return apiFetch('/buyer/orders');
+}
+
+// ─── Q&A (Ürün Soruları) ─────────────────────────────────────────────────────
+
+export async function apiMarketplaceListQuestions(productId) {
+  const res = await fetch(`${API_BASE}/marketplace/products/${productId}/questions`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function apiMarketplaceAskQuestion(productId, question) {
+  return apiFetch(`/marketplace/products/${productId}/questions`, {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
+}
+
+export async function apiSellerListQuestions(status = '', countOnly = false) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (countOnly) params.set('count_only', '1');
+  return apiFetch(`/seller/questions${params.toString() ? '?' + params : ''}`);
+}
+
+export async function apiSellerAnswerQuestion(id, answer) {
+  return apiFetch(`/seller/questions/${id}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ answer }),
+  });
+}
+
+// ─── Satıcı Marketplace Sipariş Yönetimi ─────────────────────────────────────
+
+export async function apiSellerListMarketplaceOrders(status = '', countOnly = false) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (countOnly) params.set('count_only', '1');
+  return apiFetch(`/seller/marketplace-orders${params.toString() ? '?' + params : ''}`);
+}
+
+export async function apiSellerGetMarketplaceOrder(id) {
+  return apiFetch(`/seller/marketplace-orders/${id}`);
+}
+
+export async function apiSellerApproveOrder(id) {
+  return apiFetch(`/seller/marketplace-orders/${id}/approve`, { method: 'POST' });
+}
+
+export async function apiSellerRejectOrder(id, reason) {
+  return apiFetch(`/seller/marketplace-orders/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function apiSellerShipOrder(id, payload) {
+  return apiFetch(`/seller/marketplace-orders/${id}/ship`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiSellerMarkDelivered(id) {
+  return apiFetch(`/seller/marketplace-orders/${id}/mark-delivered`, { method: 'POST' });
+}
+
+export async function apiSellerReleaseEscrow(id) {
+  return apiFetch(`/seller/marketplace-orders/${id}/release-escrow`, { method: 'POST' });
+}
+
+export async function apiSellerGetBalance() {
+  return apiFetch('/seller/balance');
+}
+
+export async function apiSellerStripeConnect() {
+  return apiFetch('/seller/connect', { method: 'POST' });
+}
+
+export async function apiSellerDashboard() {
+  return apiFetch('/seller/dashboard');
+}
+
+// ─── Marketplace çağrıları (auth header'ı varsa otomatik gönderilir) ─────────
+
+// Marketplace product detail artık { product, answered_questions } döner —
+// MarketplaceProduct sayfası eski {product} yapısı için bu helper'ı kullanır.
+export async function apiMarketplaceGetProductFull(id) {
+  const res = await fetch(`${API_BASE}/marketplace/products/${id}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json(); // { product, answered_questions }
+}
+
+// Marketplace order oluşturma — auth varsa otomatik bearer ekler (apiFetch),
+// auth yoksa raw fetch. Backend her iki durumu da kabul eder.
+export async function apiMarketplaceCreateOrderAuth(payload) {
+  return apiFetch('/marketplace/orders', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function apiStorefrontVerifyOTP(email, phone, code) {
   const res = await fetch(`${API_BASE}/storefront/orders/verify`, {
     method: 'POST',
