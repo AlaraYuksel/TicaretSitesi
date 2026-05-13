@@ -65,33 +65,37 @@ func genID() string {
 // ─── Tool Definitions (Gemini'ye gönderilecek schema) ─────────────────────────
 
 // SiteBuilderTools agent'a sunulan tool seti.
+// Sadece tek bir tool: build_site_at_once. Bu tool tek bir çağrıyla
+// tüm sayfaları ve elementleri üretir; ekstra round-trip ve kota tüketimi olmaz.
 func SiteBuilderTools() []Tool {
 	return []Tool{{
 		FunctionDeclarations: []FunctionDeclaration{
 			{
 				Name:        "build_site_at_once",
-				Description: "Tüm siteyi (sayfalar ve elementler) tek seferde inşa eder. Ücretsiz API kota sınırlarına (dakikada 5 istek) takılmamak için add_page veya add_element YERİNE SADECE BU ARACI KULLANMAN ZORUNLUDUR. Tek bir tool çağrısıyla tüm siteyi bitir.",
+				Description: "Tüm web sitesini (tüm sayfalar ve her sayfanın tüm elementleri) tek bir tool çağrısında inşa eder. Plandaki tüm sayfaları ve her sayfadaki tüm elementleri eksiksiz doldurman zorunludur. y koordinatları artan sırada, propslar Türkçe içerikle dolu olmalı.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
 						"pages": map[string]interface{}{
-							"type": "array",
+							"type":        "array",
+							"description": "Plandaki tüm sayfalar.",
 							"items": map[string]interface{}{
 								"type": "object",
 								"properties": map[string]interface{}{
-									"name":            map[string]interface{}{"type": "string"},
-									"backgroundColor": map[string]interface{}{"type": "string"},
+									"name":            map[string]interface{}{"type": "string", "description": "Sayfa adı, plandaki ile aynı."},
+									"backgroundColor": map[string]interface{}{"type": "string", "description": "Hex renk, örn: '#0e0e0e'"},
 									"elements": map[string]interface{}{
-										"type": "array",
+										"type":        "array",
+										"description": "Sayfadaki tüm elementler, plandaki sırayla.",
 										"items": map[string]interface{}{
 											"type": "object",
 											"properties": map[string]interface{}{
-												"element_type": map[string]interface{}{"type": "string"},
-												"x":            map[string]interface{}{"type": "integer"},
-												"y":            map[string]interface{}{"type": "integer"},
-												"width":        map[string]interface{}{"type": "integer"},
-												"height":       map[string]interface{}{"type": "integer"},
-												"props":        map[string]interface{}{"type": "object"},
+												"element_type": map[string]interface{}{"type": "string", "description": "Element tipi (heading, paragraph, button, image, hero, navbar, minimalistNavbar, card, form, productCard, productGrid, productListing, productDetailHero, categoryGrid, testimonial, badge, divider, icon, box, section, flexContainer, gridContainer, accordion, tabs, storeHeader, checkoutForm, cartWidget)"},
+												"x":            map[string]interface{}{"type": "integer", "description": "Sol kenardan px. Tam ekran elementler için 0."},
+												"y":            map[string]interface{}{"type": "integer", "description": "Üstten px. Sıralı artmalı, üst üste binme olmamalı."},
+												"width":        map[string]interface{}{"type": "integer", "description": "Genişlik px. Boşsa varsayılan kullanılır."},
+												"height":       map[string]interface{}{"type": "integer", "description": "Yükseklik px. Boşsa varsayılan kullanılır."},
+												"props":        map[string]interface{}{"type": "object", "description": "Elementin Türkçe içerik propsları. Örn: heading için {text, fontSize, color}; hero için {tag, title, subtitle, ctaText}; productGrid için {sectionTitle, products}."},
 											},
 											"required": []string{"element_type", "y"},
 										},
@@ -102,71 +106,6 @@ func SiteBuilderTools() []Tool {
 						},
 					},
 					"required": []string{"pages"},
-				},
-			},
-			{
-				Name:        "add_page",
-				Description: "Siteye yeni bir sayfa ekler. İlk çağrıda Anasayfa için kullanılır. backgroundColor opsiyonel (örn: '#0e0e0e').",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"name":            map[string]interface{}{"type": "string", "description": "Sayfa adı, örn: 'Anasayfa', 'Hakkımızda'"},
-						"backgroundColor": map[string]interface{}{"type": "string", "description": "Sayfa arka plan rengi, hex format. Opsiyonel."},
-					},
-					"required": []string{"name"},
-				},
-			},
-			{
-				Name:        "add_element",
-				Description: "Bir sayfaya yeni element ekler. element_type element kataloğundan biri olmalı. props elementin özelliklerini belirler (text, color, fontSize, vb.). x ve y desktop görünümünde piksel cinsinden konumdur — elementleri üst üste binmesin diye y koordinatlarını sıralı artır (her element için önceki elementin y + height + 24 kadar boşluk bırak).",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"page_id":      map[string]interface{}{"type": "string", "description": "add_page'in döndürdüğü sayfa ID"},
-						"element_type": map[string]interface{}{"type": "string", "description": "Element tipi: heading, paragraph, button, image, hero, navbar, minimalistNavbar, card, form, productCard, productGrid, productListing, productDetailHero, categoryGrid, testimonial, badge, divider, icon, box, section, flexContainer, gridContainer, accordion, tabs, storeHeader, checkoutForm, cartWidget"},
-						"x":            map[string]interface{}{"type": "integer", "description": "Sol kenardan piksel. Genelde 0 veya 120."},
-						"y":            map[string]interface{}{"type": "integer", "description": "Üstten piksel. Sıralı artmalı, üst üste binme olmamalı."},
-						"width":        map[string]interface{}{"type": "integer", "description": "Genişlik px. Boş bırakılırsa varsayılan kullanılır."},
-						"height":       map[string]interface{}{"type": "integer", "description": "Yükseklik px. Boş bırakılırsa varsayılan kullanılır."},
-						"props": map[string]interface{}{
-							"type":        "object",
-							"description": "Elementin özellikleri (text, color, fontSize, bg, vb.) Default'ların üzerine yazılır.",
-						},
-					},
-					"required": []string{"page_id", "element_type"},
-				},
-			},
-			{
-				Name:        "update_element_props",
-				Description: "Mevcut bir elementin propslarını günceller. Plana göre eklenmiş elementi rafine etmek için kullan.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"page_id":    map[string]interface{}{"type": "string"},
-						"element_id": map[string]interface{}{"type": "string"},
-						"props":      map[string]interface{}{"type": "object"},
-					},
-					"required": []string{"page_id", "element_id", "props"},
-				},
-			},
-			{
-				Name:        "set_page_background",
-				Description: "Bir sayfanın arka plan rengini ayarlar.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"page_id": map[string]interface{}{"type": "string"},
-						"color":   map[string]interface{}{"type": "string", "description": "Hex renk, örn: '#0e0e0e'"},
-					},
-					"required": []string{"page_id", "color"},
-				},
-			},
-			{
-				Name:        "done",
-				Description: "Site inşası tamamlandığında çağır. Hiç argüman almaz.",
-				Parameters: map[string]interface{}{
-					"type":       "object",
-					"properties": map[string]interface{}{},
 				},
 			},
 		},

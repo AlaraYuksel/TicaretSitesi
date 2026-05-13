@@ -76,9 +76,22 @@ type GenerationConfig struct {
 	ResponseSchema   map[string]interface{} `json:"responseSchema,omitempty"`
 }
 
+// FunctionCallingConfig — Gemini'ye fonksiyon çağrısı modunu zorlar.
+// Mode: "AUTO" (default), "ANY" (zorunlu çağrı), "NONE" (asla çağırma).
+// AllowedFunctionNames: "ANY" modunda hangi fonksiyonların çağrılabileceğini sınırlar.
+type FunctionCallingConfig struct {
+	Mode                 string   `json:"mode,omitempty"`
+	AllowedFunctionNames []string `json:"allowedFunctionNames,omitempty"`
+}
+
+type ToolConfig struct {
+	FunctionCallingConfig *FunctionCallingConfig `json:"functionCallingConfig,omitempty"`
+}
+
 type generateRequest struct {
 	Contents          []Content         `json:"contents"`
 	Tools             []Tool            `json:"tools,omitempty"`
+	ToolConfig        *ToolConfig       `json:"toolConfig,omitempty"`
 	SystemInstruction *Content          `json:"systemInstruction,omitempty"`
 	GenerationConfig  *GenerationConfig `json:"generationConfig,omitempty"`
 }
@@ -128,16 +141,19 @@ func (c *GeminiClient) GenerateStructured(
 
 // GenerateWithTools function-calling için multi-turn çağrı.
 // history önceki adımları içerir, tools agent'ın çağırabileceği fonksiyonları tanımlar.
+// toolConfig nil değilse modeli fonksiyon çağırmaya zorlar (ANY modu için).
 func (c *GeminiClient) GenerateWithTools(
 	ctx context.Context,
 	model string,
 	systemPrompt string,
 	history []Content,
 	tools []Tool,
+	toolConfig *ToolConfig,
 ) (*Candidate, error) {
 	req := generateRequest{
-		Contents: history,
-		Tools:    tools,
+		Contents:   history,
+		Tools:      tools,
+		ToolConfig: toolConfig,
 		GenerationConfig: &GenerationConfig{
 			Temperature: 0.6,
 		},

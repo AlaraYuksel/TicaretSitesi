@@ -17,11 +17,11 @@ import (
 
 // AISiteBuilderHandler — Gemini destekli site builder agent endpoint'leri.
 // İki adımlı akış:
-//   1) POST /api/ai/build-site/plan  → plan üret, planId döndür
-//   2) POST /api/ai/build-site/execute → planı uygula, SSE ile progress yayınla
+//  1. POST /api/ai/build-site/plan  → plan üret, planId döndür
+//  2. POST /api/ai/build-site/execute → planı uygula, SSE ile progress yayınla
 type AISiteBuilderHandler struct {
-	store    *db.Store
-	gemini   *ai.GeminiClient
+	store     *db.Store
+	gemini    *ai.GeminiClient
 	planCache *planCache
 }
 
@@ -156,6 +156,13 @@ func (h *AISiteBuilderHandler) ExecutePlan(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
+	// Sunucu http.Server.WriteTimeout=30s ile yapılandırılmış; Gemini'nin uzun
+	// üretim süresi (~60-120s) bunu aşıyor ve bağlantı yarıda kesiliyor
+	// (ERR_INCOMPLETE_CHUNKED_ENCODING). Bu SSE handler'ı için yazma deadline'ını
+	// kaldırıyoruz.
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "Streaming desteklenmiyor")
@@ -198,102 +205,113 @@ func (h *AISiteBuilderHandler) ExecutePlan(w http.ResponseWriter, r *http.Reques
 
 	emit(map[string]interface{}{"type": "started", "message": "Site oluşturuluyor..."})
 
-	// ── Agent loop ─────────────────────────────────────────────────────────
+	// ── Tek-atış inşa: Gemini'yi 'build_site_at_once' çağırmaya zorla. ─────
 	systemPrompt := executeSystemPrompt()
-	initial := fmt.Sprintf("Kullanıcının isteği: %s\n\nOnaylanan plan (bu plana sadık kal):\n%s\n\nGörev: API kota sınırlarını aşmamak için KESİNLİKLE 'build_site_at_once' aracını çağırarak bu planı TEK SEFERDE site_data'ya dönüştür.",
-		cached.prompt, string(cached.plan))
+	initial := fmt.Sprintf(`Kullanıcının isteği: %s
+
+Onaylanan plan (BU PLANA TAM OLARAK UY — sayfa adları, element tipleri, sıralama):
+%s
+
+GÖREV: Tek bir 'build_site_at_once' tool çağrısıyla bu planı eksiksiz inşa et.
+- Plandaki her sayfa için sayfa nesnesi üret.
+- Plandaki her element için pages[i].elements[j] içine eleman üret.
+- Element tipini (heading, hero, productGrid, vb.) plandakiyle birebir eşle.
+- y koordinatlarını sıralı ver: navbar y=0, sonraki = önceki_y + önceki_height + 24.
+- Element propslarını Türkçe içerikle doldur (title, subtitle, text, vb.).
+- BU SAFHADA SADECE bu tool'u çağır, metin yanıtı verme.`, cached.prompt, string(cached.plan))
 
 	history := []ai.Content{
 		{Role: "user", Parts: []ai.Part{{Text: initial}}},
 	}
 	tools := ai.SiteBuilderTools()
-
-	const maxIters = 40
-	for iter := 0; iter < maxIters; iter++ {
-		// İstek iptal edildi mi?
-		select {
-		case <-r.Context().Done():
-			emit(map[string]interface{}{"type": "error", "message": "İstek iptal edildi"})
-			return
-		default:
-		}
-
-		cand, err := h.gemini.GenerateWithTools(r.Context(), ai.DefaultModel, systemPrompt, history, tools)
-		if err != nil {
-			emit(map[string]interface{}{"type": "error", "message": "Gemini hatası: " + err.Error()})
-			return
-		}
-
-		// Model yanıtını history'ye ekle (function call ve metni birlikte).
-		history = append(history, cand.Content)
-
-		// İçeriği işle — text ve function call'lar karışık gelebilir.
-		var anyFunctionCall bool
-		var responses []ai.Part
-		for _, part := range cand.Content.Parts {
-			if part.Text != "" {
-				emit(map[string]interface{}{"type": "thinking", "message": part.Text})
-			}
-			if part.FunctionCall != nil {
-				anyFunctionCall = true
-				result, done, execErr := ai.ExecuteTool(&siteData, part.FunctionCall)
-				if execErr != nil {
-					responses = append(responses, ai.Part{
-						FunctionResponse: &ai.FunctionResponse{
-							Name:     part.FunctionCall.Name,
-							Response: map[string]interface{}{"error": execErr.Error()},
-						},
-					})
-					emit(map[string]interface{}{
-						"type":    "tool_error",
-						"name":    part.FunctionCall.Name,
-						"message": execErr.Error(),
-					})
-					continue
-				}
-				emit(map[string]interface{}{
-					"type":   "tool_call",
-					"name":   part.FunctionCall.Name,
-					"args":   part.FunctionCall.Args,
-					"result": result,
-				})
-				if done {
-					if err := h.persistSiteData(context.Background(), req.SiteID, userID, &siteData); err != nil {
-						emit(map[string]interface{}{"type": "error", "message": "Site kaydedilemedi: " + err.Error()})
-						return
-					}
-					sd, _ := json.Marshal(&siteData)
-					emit(map[string]interface{}{"type": "done", "siteData": json.RawMessage(sd)})
-					return
-				}
-				responses = append(responses, ai.Part{
-					FunctionResponse: &ai.FunctionResponse{
-						Name:     part.FunctionCall.Name,
-						Response: result,
-					},
-				})
-			}
-		}
-
-		if !anyFunctionCall {
-			// Model fonksiyon çağırmadan durdu — manuel olarak done sayalım.
-			if err := h.persistSiteData(context.Background(), req.SiteID, userID, &siteData); err != nil {
-				emit(map[string]interface{}{"type": "error", "message": "Site kaydedilemedi: " + err.Error()})
-				return
-			}
-			sd, _ := json.Marshal(&siteData)
-			emit(map[string]interface{}{"type": "done", "siteData": json.RawMessage(sd)})
-			return
-		}
-
-		// Tool sonuçlarını user rolüyle history'ye ekle.
-		history = append(history, ai.Content{Role: "user", Parts: responses})
+	toolConfig := &ai.ToolConfig{
+		FunctionCallingConfig: &ai.FunctionCallingConfig{
+			Mode:                 "ANY",
+			AllowedFunctionNames: []string{"build_site_at_once"},
+		},
 	}
 
-	emit(map[string]interface{}{"type": "error", "message": "Max iterasyon aşıldı, kısmi sonuç kaydediliyor"})
-	_ = h.persistSiteData(context.Background(), req.SiteID, userID, &siteData)
+	cand, err := h.gemini.GenerateWithTools(r.Context(), ai.DefaultModel, systemPrompt, history, tools, toolConfig)
+	if err != nil {
+		log.Printf("AI execute Gemini hatası: %v", err)
+		emit(map[string]interface{}{"type": "error", "message": "Gemini hatası: " + err.Error()})
+		return
+	}
+
+	// İçeriği işle — text ve function call'lar karışık gelebilir.
+	var calledBuild bool
+	for _, part := range cand.Content.Parts {
+		if part.Text != "" {
+			emit(map[string]interface{}{"type": "thinking", "message": part.Text})
+		}
+		if part.FunctionCall == nil {
+			continue
+		}
+		if part.FunctionCall.Name != "build_site_at_once" {
+			log.Printf("AI beklenmeyen tool çağrısı: %s", part.FunctionCall.Name)
+			continue
+		}
+		calledBuild = true
+		result, _, execErr := ai.ExecuteTool(&siteData, part.FunctionCall)
+		if execErr != nil {
+			log.Printf("AI build_site_at_once hatası: %v", execErr)
+			emit(map[string]interface{}{
+				"type":    "tool_error",
+				"name":    part.FunctionCall.Name,
+				"message": execErr.Error(),
+			})
+			emit(map[string]interface{}{"type": "error", "message": "Site inşa edilemedi: " + execErr.Error()})
+			return
+		}
+		emit(map[string]interface{}{
+			"type":   "tool_call",
+			"name":   part.FunctionCall.Name,
+			"args":   summarizeBuildArgs(part.FunctionCall.Args),
+			"result": result,
+		})
+	}
+
+	if !calledBuild {
+		log.Printf("AI: model 'build_site_at_once' çağırmadı. Yanıt: %+v", cand.Content)
+		emit(map[string]interface{}{"type": "error", "message": "AI yanıtında geçerli tool çağrısı bulunamadı. Lütfen tekrar dene."})
+		return
+	}
+
+	// Sıhhat kontrolü: en az bir sayfa ve toplamda en az bir element olmalı.
+	totalElements := 0
+	for _, p := range siteData.Pages {
+		totalElements += len(p.Elements)
+	}
+	if len(siteData.Pages) == 0 || totalElements == 0 {
+		log.Printf("AI: boş site_data üretildi (sayfa=%d, eleman=%d)", len(siteData.Pages), totalElements)
+		emit(map[string]interface{}{"type": "error", "message": "AI boş site üretti, lütfen tekrar dene."})
+		return
+	}
+
+	if err := h.persistSiteData(context.Background(), req.SiteID, userID, &siteData); err != nil {
+		log.Printf("AI persist hatası: %v", err)
+		emit(map[string]interface{}{"type": "error", "message": "Site kaydedilemedi: " + err.Error()})
+		return
+	}
+	log.Printf("AI site builder: %s için %d sayfa, %d eleman üretildi", req.SiteID, len(siteData.Pages), totalElements)
 	sd, _ := json.Marshal(&siteData)
 	emit(map[string]interface{}{"type": "done", "siteData": json.RawMessage(sd)})
+}
+
+// summarizeBuildArgs UI'a göndermek için büyük args yapısını özetler
+// (tüm JSON'u stream'e koymamak için).
+func summarizeBuildArgs(args map[string]interface{}) map[string]interface{} {
+	pagesInf, _ := args["pages"].([]interface{})
+	summary := []map[string]interface{}{}
+	for _, pInf := range pagesInf {
+		p, _ := pInf.(map[string]interface{})
+		els, _ := p["elements"].([]interface{})
+		summary = append(summary, map[string]interface{}{
+			"name":     p["name"],
+			"elements": len(els),
+		})
+	}
+	return map[string]interface{}{"pages": summary}
 }
 
 func (h *AISiteBuilderHandler) persistSiteData(ctx context.Context, siteID, userID string, sd *ai.SiteData) error {

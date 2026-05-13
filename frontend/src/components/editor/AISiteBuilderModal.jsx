@@ -51,6 +51,13 @@ export default function AISiteBuilderModal({ siteId, onClose }) {
     cancelRef.current = apiAIExecutePlan(planId, siteId, (evt) => {
       setEvents(prev => [...prev, evt]);
       if (evt.type === 'done' && evt.siteData) {
+        const pages = evt.siteData?.pages || [];
+        const totalEls = pages.reduce((n, p) => n + (p.elements?.length || 0), 0);
+        if (pages.length === 0 || totalEls === 0) {
+          setError('AI boş site üretti (sayfa veya eleman yok). Lütfen tekrar dene.');
+          setStage('error');
+          return;
+        }
         loadSiteData(evt.siteData);
         setStage('done');
       } else if (evt.type === 'error') {
@@ -242,7 +249,12 @@ function EventLine({ evt }) {
   const m = map[evt.type] || { color:'#888', icon:'·' };
   let text = evt.message || '';
   if (evt.type === 'tool_call') {
-    if (evt.name === 'add_page') text = `Sayfa eklendi: ${evt.args?.name || evt.result?.name || '...'}`;
+    if (evt.name === 'build_site_at_once') {
+      const pages = evt.args?.pages || [];
+      const totalEls = pages.reduce((n, p) => n + (p.elements || 0), 0);
+      text = `Site inşa edildi: ${pages.length} sayfa, ${totalEls} eleman`;
+    }
+    else if (evt.name === 'add_page') text = `Sayfa eklendi: ${evt.args?.name || evt.result?.name || '...'}`;
     else if (evt.name === 'add_element') text = `Element eklendi: ${evt.args?.element_type || '...'}`;
     else if (evt.name === 'set_page_background') text = `Sayfa rengi: ${evt.args?.color}`;
     else if (evt.name === 'update_element_props') text = `Element güncellendi`;
@@ -273,14 +285,18 @@ function DoneStage({ onClose }) {
 }
 
 function ErrorStage({ error, onRetry, onClose }) {
+  const msg = (error || '').toLowerCase();
+  const isApiKey = msg.includes('gemini_api_key') || msg.includes('404') || msg.includes('api key') || msg.includes('401') || msg.includes('403');
+  const isQuota = msg.includes('quota') || msg.includes('429') || msg.includes('rate');
+  let hint = 'Tekrar denemek istersen "Tekrar Dene" butonuna bas. Daha kısa veya net bir prompt deneyebilirsin.';
+  if (isApiKey) hint = 'GEMINI_API_KEY .env\'de ayarlı ve geçerli olmalı. Backend\'i yeniden başlatmayı unutma.';
+  else if (isQuota) hint = 'Gemini API kotası aşıldı. Birkaç dakika bekleyip tekrar dene.';
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14 }}>
       <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:10, padding:14, color:'#fca5a5', fontSize:13, lineHeight:1.5 }}>
         {error || 'Bilinmeyen hata'}
       </div>
-      <p style={{ margin:0, color:'#666', fontSize:11, lineHeight:1.5 }}>
-        GEMINI_API_KEY .env'de ayarlanmış olmalı. Anahtarı kontrol edip tekrar dene.
-      </p>
+      <p style={{ margin:0, color:'#666', fontSize:11, lineHeight:1.5 }}>{hint}</p>
       <div style={{ display:'flex', gap:10 }}>
         <button onClick={onClose} style={secondaryButtonStyle}>Kapat</button>
         <button onClick={onRetry} style={{ ...primaryButtonStyle, flex:1 }}>Tekrar Dene</button>
