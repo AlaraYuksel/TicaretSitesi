@@ -521,6 +521,73 @@ func (s *Store) MarkMarketplaceOrderEscrowReleased(ctx context.Context, orderID,
 	return nil
 }
 
+// ListUnsyncedPaymentIntentsForSeller — payment_status='pending' ama Stripe PI'sı
+// olan siparişler. Webhook gelmediğinde lazy-sync için kullanılır.
+// Liste kısa olur (genelde 0-10 kayıt); satıcı her sipariş sayfası açtığında çağrılır.
+func (s *Store) ListUnsyncedPaymentIntentsForSeller(ctx context.Context, sellerUserID string) ([]string, error) {
+	const q = `
+		SELECT stripe_payment_intent_id
+		FROM marketplace_orders
+		WHERE site_id IN (SELECT id FROM sites WHERE user_id = $1)
+		  AND payment_status = 'pending'
+		  AND stripe_payment_intent_id IS NOT NULL
+		  AND stripe_payment_intent_id <> ''
+		LIMIT 50`
+	rows, err := s.pool.Query(ctx, q, sellerUserID)
+	if err != nil {
+		return nil, fmt.Errorf("ListUnsyncedPaymentIntentsForSeller: %w", err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var pi string
+		if err := rows.Scan(&pi); err != nil {
+			return nil, err
+		}
+		if pi != "" {
+			out = append(out, pi)
+		}
+	}
+	return out, rows.Err()
+}
+
+// GetMarketplaceOrderByID — id ile getirir (ownership kontrolü yapmaz).
+func (s *Store) GetMarketplaceOrderByID(ctx context.Context, orderID string) (*MarketplaceOrder, error) {
+	query := marketplaceOrderSelect + ` WHERE id = $1`
+	row := s.pool.QueryRow(ctx, query, orderID)
+	return scanMarketplaceOrder(row)
+}
+
+// GetMarketplaceOrderForBuyer — buyer ownership kontrollü getirir.
+func (s *Store) GetMarketplaceOrderForBuyer(ctx context.Context, orderID, buyerID string) (*MarketplaceOrder, error) {
+	query := marketplaceOrderSelect + ` WHERE id = $1 AND buyer_id = $2`
+	row := s.pool.QueryRow(ctx, query, orderID, buyerID)
+	return scanMarketplaceOrder(row)
+}
+
+// CancelMarketplaceOrder — Sipariş kargoya verilmeden önce iptal.
+// Ödeme yapılmışsa payment_status='refunded' ve escrow_status='refunded' işaretlenir.
+// Sipariş 'shipped' veya sonrası ise rows affected 0 döner (caller 409 dönmeli).
+func (s *Store) CancelMarketplaceOrder(ctx context.Context, orderID, reason string) error {
+	const q = `
+		UPDATE marketplace_orders SET
+			status          = 'cancelled',
+			approval_status = 'rejected',
+			payment_status  = CASE WHEN payment_status = 'paid' THEN 'refunded' ELSE payment_status END,
+			escrow_status   = CASE WHEN escrow_status = 'held'  THEN 'refunded' ELSE escrow_status END,
+			rejected_reason = NULLIF($2,''),
+			updated_at      = NOW()
+		WHERE id = $1 AND status NOT IN ('shipped', 'delivered', 'cancelled')`
+	tag, err := s.pool.Exec(ctx, q, orderID, reason)
+	if err != nil {
+		return fmt.Errorf("CancelMarketplaceOrder: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 // MarkMarketplaceOrderPaidByID — Stripe yapılandırılmamışsa (test/dev) order'ı
 // doğrudan paid işaretler. Caller bunu paymentIntent olmadan kullanır.
 func (s *Store) MarkMarketplaceOrderPaidByID(ctx context.Context, orderID string) error {

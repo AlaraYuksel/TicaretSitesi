@@ -14,6 +14,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -44,6 +45,10 @@ func NewSellerOrdersHandler(store *db.Store, stripe *payments.Client, cfg *confi
 func (h *SellerOrdersHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 	status := r.URL.Query().Get("status")
+
+	// Lazy-sync: webhook'a güvenmeden, Stripe'ta succeeded olmuş ama DB'de hâlâ
+	// 'pending' kalmış siparişleri eşitle. Hatalar UI'yi bloklamamalı, log + devam.
+	h.syncPendingPayments(r.Context(), userID)
 
 	if r.URL.Query().Get("count_only") == "1" {
 		n, err := h.store.CountMarketplaceOrdersPendingApprovalForSeller(r.Context(), userID)
@@ -153,6 +158,52 @@ func (h *SellerOrdersHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.UpdateMarketplaceOrderApproval(r.Context(), id, "rejected", "cancelled", "refunded", reason); err != nil {
 		log.Printf("Reject: %v", err)
 		writeError(w, http.StatusInternalServerError, "Red işlenemedi")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── POST /api/seller/marketplace-orders/{id}/cancel ─────────────────────
+//
+// Sipariş kargoya verilmeden önce satıcının iptal etme yolu.
+// Onaylanmış (approved) veya henüz onaylanmamış (pending_approval) siparişleri kapsar.
+// Ödeme yapılmışsa Stripe refund tetiklenir.
+
+func (h *SellerOrdersHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	id := pathValue(r, "id")
+	order, err := h.requireOwnedOrder(r, userID, id)
+	if err != nil {
+		h.respondLookupErr(w, err)
+		return
+	}
+	if order.Status == "shipped" || order.Status == "delivered" {
+		writeError(w, http.StatusConflict, "Kargoya verilmiş sipariş iptal edilemez")
+		return
+	}
+	if order.Status == "cancelled" {
+		writeError(w, http.StatusConflict, "Sipariş zaten iptal edilmiş")
+		return
+	}
+
+	var req rejectRequest
+	_ = decodeJSON(r, &req)
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Sipariş satıcı tarafından iptal edildi"
+	}
+
+	if order.PaymentStatus == "paid" && order.StripePaymentIntentID != nil && *order.StripePaymentIntentID != "" && h.stripe.Configured() {
+		if _, err := h.stripe.CreateRefund(r.Context(), *order.StripePaymentIntentID, 0); err != nil {
+			log.Printf("Seller Cancel refund: %v", err)
+			writeError(w, http.StatusBadGateway, "İade başlatılamadı")
+			return
+		}
+	}
+
+	if err := h.store.CancelMarketplaceOrder(r.Context(), id, reason); err != nil {
+		log.Printf("Seller Cancel: %v", err)
+		writeError(w, http.StatusInternalServerError, "İptal başarısız")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -293,6 +344,32 @@ func (h *SellerOrdersHandler) Balance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, balance)
+}
+
+// syncPendingPayments — pending kayıtların Stripe PI durumunu kontrol eder ve
+// succeeded olanları paid yapar. Webhook'a güvenilemeyen ortamlar için self-healing.
+func (h *SellerOrdersHandler) syncPendingPayments(ctx context.Context, sellerUserID string) {
+	if !h.stripe.Configured() {
+		return
+	}
+	piIDs, err := h.store.ListUnsyncedPaymentIntentsForSeller(ctx, sellerUserID)
+	if err != nil {
+		log.Printf("syncPendingPayments list: %v", err)
+		return
+	}
+	for _, pi := range piIDs {
+		result, err := h.stripe.RetrievePaymentIntent(ctx, pi)
+		if err != nil {
+			log.Printf("syncPendingPayments retrieve %s: %v", pi, err)
+			continue
+		}
+		if result.Status != "succeeded" {
+			continue
+		}
+		if err := h.store.MarkMarketplaceOrderPaid(ctx, pi); err != nil {
+			log.Printf("syncPendingPayments mark paid %s: %v", pi, err)
+		}
+	}
 }
 
 // ─── Yardımcı ─────────────────────────────────────────────────────────────

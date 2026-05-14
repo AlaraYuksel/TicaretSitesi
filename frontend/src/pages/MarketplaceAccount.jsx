@@ -11,7 +11,7 @@ import {
   apiBuyerDeleteAddress, apiBuyerSetDefaultAddress,
   apiBuyerListPaymentMethods, apiBuyerCreateSetupIntent, apiBuyerAttachPaymentMethod,
   apiBuyerDeletePaymentMethod, apiBuyerSetDefaultPaymentMethod,
-  apiBuyerListOrders,
+  apiBuyerListOrders, apiBuyerCancelOrder,
 } from '../lib/api';
 
 // Stripe.js publishable key (sk_test_*/pk_test_*). .env üzerinden alınır.
@@ -402,18 +402,30 @@ function AddCardForm({ onCancel, onSaved }) {
 function OrdersTab() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState({});
 
-  useEffect(() => {
-    (async () => {
-      try { setOrders(await apiBuyerListOrders()); }
-      finally { setLoading(false); }
-    })();
-  }, []);
+  const reload = async () => {
+    setLoading(true);
+    try { setOrders(await apiBuyerListOrders()); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { reload(); }, []);
+
+  const cancel = async (o) => {
+    const reason = prompt('İptal sebebi (opsiyonel):') ?? '';
+    if (!confirm('Siparişi iptal etmek istediğinize emin misiniz? Ödeme yapılmışsa otomatik iade tetiklenir.')) return;
+    setBusy(b => ({ ...b, [o.id]: true }));
+    try { await apiBuyerCancelOrder(o.id, reason); await reload(); }
+    catch (e) { alert(e.message); }
+    finally { setBusy(b => ({ ...b, [o.id]: false })); }
+  };
 
   if (loading) return <Card>Yükleniyor...</Card>;
   if (orders.length === 0) {
     return <Card><p style={{ margin: 0, color: '#5d5f5f' }}>Henüz siparişiniz yok.</p></Card>;
   }
+
+  const canCancel = (o) => o.status !== 'shipped' && o.status !== 'delivered' && o.status !== 'cancelled';
 
   return orders.map(o => (
     <Card key={o.id}>
@@ -428,10 +440,19 @@ function OrdersTab() {
         </div>
       </div>
       {o.tracking_number && (
-        <div style={{ fontSize: 12, color: '#444748' }}>
+        <div style={{ fontSize: 12, color: '#444748', marginBottom: 8 }}>
           Kargo: <strong>{o.carrier || 'Bilinmiyor'}</strong> · Takip No: {o.tracking_number}
           {o.tracking_url && <> · <a href={o.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: '#121926' }}>Takip Et</a></>}
         </div>
+      )}
+      {canCancel(o) && (
+        <button disabled={!!busy[o.id]} onClick={() => cancel(o)} style={{
+          background: 'transparent', border: '1px solid #7f1d1d', color: '#7f1d1d',
+          padding: '8px 14px', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+          cursor: 'pointer', marginTop: 4,
+        }}>
+          {busy[o.id] ? 'İPTAL EDİLİYOR...' : 'SİPARİŞİ İPTAL ET'}
+        </button>
       )}
     </Card>
   ));

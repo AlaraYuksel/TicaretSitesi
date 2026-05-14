@@ -138,6 +138,7 @@ func main() {
 	mux.HandleFunc("GET /api/marketplace/categories", marketplaceHandler.ListCategories)
 	mux.HandleFunc("POST /api/marketplace/orders", marketplaceHandler.CreateOrder)
 	mux.HandleFunc("GET /api/marketplace/orders/{orderNumber}", marketplaceHandler.GetOrder)
+	mux.HandleFunc("POST /api/marketplace/orders/{id}/confirm-payment", marketplaceHandler.ConfirmPayment)
 
 	// ── 👤 Marketplace Alıcı: profil / adresler / kayıtlı kartlar (auth) ─────
 	mux.Handle("PUT /api/buyer/profile", auth(http.HandlerFunc(buyerHandler.UpdateProfile)))
@@ -154,6 +155,7 @@ func main() {
 	mux.Handle("DELETE /api/buyer/payment-methods/{id}", auth(http.HandlerFunc(buyerHandler.DeletePaymentMethod)))
 	mux.Handle("PUT /api/buyer/payment-methods/{id}/default", auth(http.HandlerFunc(buyerHandler.SetDefaultPaymentMethod)))
 	mux.Handle("GET /api/buyer/orders", auth(http.HandlerFunc(marketplaceHandler.ListMyOrders)))
+	mux.Handle("POST /api/buyer/orders/{id}/cancel", auth(http.HandlerFunc(marketplaceHandler.CancelByBuyer)))
 
 	// ── ❓ Ürün Soruları (Q&A) ───────────────────────────────────────────────
 	mux.HandleFunc("GET /api/marketplace/products/{id}/questions", questionsHandler.PublicList)
@@ -166,6 +168,7 @@ func main() {
 	mux.Handle("GET /api/seller/marketplace-orders/{id}", auth(http.HandlerFunc(sellerOrdersHandler.Get)))
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/approve", auth(http.HandlerFunc(sellerOrdersHandler.Approve)))
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/reject", auth(http.HandlerFunc(sellerOrdersHandler.Reject)))
+	mux.Handle("POST /api/seller/marketplace-orders/{id}/cancel", auth(http.HandlerFunc(sellerOrdersHandler.Cancel)))
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/ship", auth(http.HandlerFunc(sellerOrdersHandler.Ship)))
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/mark-delivered", auth(http.HandlerFunc(sellerOrdersHandler.MarkDelivered)))
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/release-escrow", auth(http.HandlerFunc(sellerOrdersHandler.ReleaseEscrow)))

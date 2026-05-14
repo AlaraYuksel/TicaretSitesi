@@ -330,6 +330,17 @@ export async function apiBuyerListOrders() {
   return apiFetch('/buyer/orders');
 }
 
+export async function apiBuyerCancelOrder(id, reason) {
+  return apiFetch(`/buyer/orders/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || '' }),
+  });
+}
+
+export async function apiMarketplaceConfirmPayment(id) {
+  return apiFetch(`/marketplace/orders/${id}/confirm-payment`, { method: 'POST' });
+}
+
 // ─── Q&A (Ürün Soruları) ─────────────────────────────────────────────────────
 
 export async function apiMarketplaceListQuestions(productId) {
@@ -396,6 +407,13 @@ export async function apiSellerMarkDelivered(id) {
 
 export async function apiSellerReleaseEscrow(id) {
   return apiFetch(`/seller/marketplace-orders/${id}/release-escrow`, { method: 'POST' });
+}
+
+export async function apiSellerCancelOrder(id, reason) {
+  return apiFetch(`/seller/marketplace-orders/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || '' }),
+  });
 }
 
 export async function apiSellerGetBalance() {

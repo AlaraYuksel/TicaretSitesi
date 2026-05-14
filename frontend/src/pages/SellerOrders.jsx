@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import {
   apiSellerListMarketplaceOrders,
-  apiSellerApproveOrder, apiSellerRejectOrder,
+  apiSellerApproveOrder, apiSellerRejectOrder, apiSellerCancelOrder,
   apiSellerShipOrder, apiSellerMarkDelivered, apiSellerReleaseEscrow,
 } from '../lib/api';
 
@@ -96,8 +96,22 @@ function OrderCard({ order, busy, wrap }) {
             })}>REDDET</button>
           </>
         )}
+        {order.approval_status === 'pending_approval' && order.payment_status !== 'paid' && (
+          <div style={{ fontSize: 12, color: '#a16207', alignSelf: 'center' }}>
+            ⌛ Ödeme onayı bekleniyor — onay butonu ödeme tamamlandığında çıkar.
+          </div>
+        )}
         {order.approval_status === 'approved' && order.status === 'confirmed' && !showShip && (
-          <button disabled={busy} style={primaryBtn} onClick={() => setShowShip(true)}>KARGOYA VERDİM</button>
+          <>
+            <button disabled={busy} style={primaryBtn} onClick={() => setShowShip(true)}>KARGOYA VERDİM</button>
+            <button disabled={busy} style={dangerBtn} onClick={wrap(async () => {
+              const reason = prompt('İptal sebebi:');
+              if (reason !== null) {
+                if (!confirm('Siparişi iptal etmek istediğinize emin misiniz? Ödeme yapılmışsa otomatik iade tetiklenir.')) return;
+                await apiSellerCancelOrder(order.id, reason);
+              }
+            })}>İPTAL ET</button>
+          </>
         )}
         {order.status === 'shipped' && (
           <button disabled={busy} style={primaryBtn} onClick={wrap(() => apiSellerMarkDelivered(order.id))}>TESLİM EDİLDİ</button>

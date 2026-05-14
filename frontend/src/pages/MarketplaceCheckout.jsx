@@ -6,7 +6,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { useCartStore } from '../store/useCartStore';
 import {
-  apiMarketplaceCreateOrderAuth,
+  apiMarketplaceCreateOrderAuth, apiMarketplaceConfirmPayment,
   apiBuyerListAddresses, apiBuyerListPaymentMethods,
   isAuthenticated,
 } from '../lib/api';
@@ -157,7 +157,7 @@ function CheckoutInner() {
         saved_payment_method_id: savedPMIDValue,
       });
 
-      // Her PaymentIntent için confirm
+      // Her PaymentIntent için confirm + backend'i bilgilendir
       for (const ord of response.orders) {
         if (ord.simulated) continue;
         if (!ord.client_secret) continue;
@@ -165,6 +165,12 @@ function CheckoutInner() {
           payment_method: paymentMethodID || undefined,
         });
         if (confErr) throw new Error(`Sipariş ${ord.order_number}: ${confErr.message}`);
+        // Webhook'a güvenmeden order'ı paid işaretle (Stripe'tan PI durumunu doğrular).
+        try {
+          await apiMarketplaceConfirmPayment(ord.order_id);
+        } catch (e) {
+          console.warn(`confirm-payment ${ord.order_number}:`, e);
+        }
       }
 
       clearCart();

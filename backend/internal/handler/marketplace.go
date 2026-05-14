@@ -335,6 +335,10 @@ func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, "Ürün artık mevcut değil: "+it.ProductID)
 			return
 		}
+		if buyerUserID != "" && pp.UserID == buyerUserID {
+			writeError(w, http.StatusForbidden, "Kendi sitenizden alışveriş yapamazsınız")
+			return
+		}
 		image := ""
 		if pp.ImageURL != nil {
 			image = *pp.ImageURL
@@ -473,6 +477,106 @@ func (h *MarketplaceHandler) CreateOrder(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"orders": results,
 	})
+}
+
+// ConfirmPayment — POST /api/marketplace/orders/{id}/confirm-payment
+//
+// Frontend stripe.confirmCardPayment başarılı olduktan sonra çağırır.
+// Backend PaymentIntent durumunu Stripe'tan doğrular ve order'ı paid işaretler.
+// Webhook'a güvenilemeyen dev/local ortamlar için kritik; webhook gelirse idempotent.
+func (h *MarketplaceHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusBadRequest, "Geçersiz sipariş ID")
+		return
+	}
+	order, err := h.store.GetMarketplaceOrderByID(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Sipariş bulunamadı")
+		return
+	}
+	if order.PaymentStatus == "paid" {
+		writeJSON(w, http.StatusOK, map[string]string{"payment_status": "paid"})
+		return
+	}
+	if order.StripePaymentIntentID == nil || *order.StripePaymentIntentID == "" {
+		writeError(w, http.StatusBadRequest, "Bu sipariş için PaymentIntent yok")
+		return
+	}
+	if !h.stripe.Configured() {
+		writeError(w, http.StatusServiceUnavailable, "Stripe yapılandırılmamış")
+		return
+	}
+	pi, err := h.stripe.RetrievePaymentIntent(r.Context(), *order.StripePaymentIntentID)
+	if err != nil {
+		log.Printf("ConfirmPayment RetrievePaymentIntent: %v", err)
+		writeError(w, http.StatusBadGateway, "Ödeme durumu alınamadı")
+		return
+	}
+	if pi.Status != "succeeded" {
+		writeJSON(w, http.StatusOK, map[string]string{"payment_status": order.PaymentStatus, "stripe_status": pi.Status})
+		return
+	}
+	if err := h.store.MarkMarketplaceOrderPaid(r.Context(), *order.StripePaymentIntentID); err != nil {
+		log.Printf("ConfirmPayment MarkMarketplaceOrderPaid: %v", err)
+		writeError(w, http.StatusInternalServerError, "Sipariş güncellenemedi")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"payment_status": "paid"})
+}
+
+// CancelByBuyer — POST /api/buyer/orders/{id}/cancel
+//
+// Alıcı kargoya verilmemiş siparişini iptal eder. Ödeme yapılmışsa Stripe refund tetiklenir.
+func (h *MarketplaceHandler) CancelByBuyer(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusBadRequest, "Geçersiz sipariş ID")
+		return
+	}
+	order, err := h.store.GetMarketplaceOrderForBuyer(r.Context(), id, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "Sipariş bulunamadı")
+			return
+		}
+		log.Printf("GetMarketplaceOrderForBuyer: %v", err)
+		writeError(w, http.StatusInternalServerError, "Sipariş yüklenemedi")
+		return
+	}
+	if order.Status == "shipped" || order.Status == "delivered" {
+		writeError(w, http.StatusConflict, "Kargoya verilmiş veya teslim edilmiş sipariş iptal edilemez")
+		return
+	}
+	if order.Status == "cancelled" {
+		writeError(w, http.StatusConflict, "Sipariş zaten iptal edilmiş")
+		return
+	}
+
+	var reqBody struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&reqBody)
+	reason := strings.TrimSpace(reqBody.Reason)
+	if reason == "" {
+		reason = "Alıcı tarafından iptal edildi"
+	}
+
+	if order.PaymentStatus == "paid" && order.StripePaymentIntentID != nil && *order.StripePaymentIntentID != "" && h.stripe.Configured() {
+		if _, err := h.stripe.CreateRefund(r.Context(), *order.StripePaymentIntentID, 0); err != nil {
+			log.Printf("CancelByBuyer CreateRefund: %v", err)
+			writeError(w, http.StatusBadGateway, "İade başlatılamadı")
+			return
+		}
+	}
+
+	if err := h.store.CancelMarketplaceOrder(r.Context(), id, reason); err != nil {
+		log.Printf("CancelMarketplaceOrder (buyer): %v", err)
+		writeError(w, http.StatusInternalServerError, "İptal başarısız")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // GetOrder — GET /api/marketplace/orders/{orderNumber}

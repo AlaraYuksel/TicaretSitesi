@@ -242,6 +242,21 @@ func (c *Client) CreatePaymentIntent(ctx context.Context, p PaymentIntentParams)
 	return &PaymentIntentResult{ID: pi.ID, ClientSecret: pi.ClientSecret, Status: string(pi.Status)}, nil
 }
 
+// RetrievePaymentIntent Stripe'tan PaymentIntent'i çeker (status öğrenmek için).
+// Webhook gelmeden önce frontend confirm tamamlandığında order'ı paid işaretlemek için kullanılır.
+func (c *Client) RetrievePaymentIntent(ctx context.Context, paymentIntentID string) (*PaymentIntentResult, error) {
+	if !c.Configured() {
+		return nil, ErrNotConfigured
+	}
+	params := &stripe.PaymentIntentParams{}
+	params.Context = ctx
+	pi, err := paymentintent.Get(paymentIntentID, params)
+	if err != nil {
+		return nil, fmt.Errorf("payment intent çekilemedi: %w", err)
+	}
+	return &PaymentIntentResult{ID: pi.ID, ClientSecret: pi.ClientSecret, Status: string(pi.Status)}, nil
+}
+
 // ─── Refund ────────────────────────────────────────────────────────────────
 
 // CreateRefund tüm tutarı (veya belirli tutarı) geri öder.
