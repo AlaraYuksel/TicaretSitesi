@@ -7,11 +7,23 @@ variable "aws_region"               { type = string }
 variable "vpc_id"                   { type = string }
 variable "private_subnet_ids"       { type = list(string) }
 variable "lambda_env_common"        { type = map(string) }
-variable "stripe_secret_key"        { type = string; sensitive = true }
-variable "stripe_webhook_secret"    { type = string; sensitive = true }
+variable "stripe_secret_key" {
+  type      = string
+  sensitive = true
+}
+variable "stripe_webhook_secret" {
+  type      = string
+  sensitive = true
+}
 variable "stripe_connect_client_id" { type = string }
-variable "easypost_api_key"         { type = string; sensitive = true }
-variable "easypost_webhook_secret"  { type = string; sensitive = true }
+variable "easypost_api_key" {
+  type      = string
+  sensitive = true
+}
+variable "easypost_webhook_secret" {
+  type      = string
+  sensitive = true
+}
 variable "sqs_finance_queue_arn"    { type = string }
 variable "sqs_finance_queue_url"    { type = string }
 variable "sqs_publish_queue_arn"    { type = string }
@@ -27,9 +39,18 @@ variable "s3_assets_bucket_arn"     { type = string }
 variable "s3_published_bucket"      { type = string }
 variable "s3_published_bucket_arn"  { type = string }
 variable "rds_security_group_id"    { type = string }
-variable "s3_react_bucket"          { type = string; default = "" }
-variable "s3_react_bucket_arn"      { type = string; default = "" }
-variable "domain_name"              { type = string; default = "" }
+variable "s3_react_bucket" {
+  type    = string
+  default = ""
+}
+variable "s3_react_bucket_arn" {
+  type    = string
+  default = ""
+}
+variable "domain_name" {
+  type    = string
+  default = ""
+}
 
 # ─── Lambda Security Group ───────────────────────────────────────────────────
 resource "aws_security_group" "lambda" {
@@ -87,7 +108,10 @@ resource "aws_iam_role_policy" "lambda_services" {
 data "archive_file" "placeholder" {
   type        = "zip"
   output_path = "${path.module}/placeholder.zip"
-  source { content = "placeholder"; filename = "bootstrap" }
+  source {
+    content  = "placeholder"
+    filename = "bootstrap"
+  }
 }
 
 locals {

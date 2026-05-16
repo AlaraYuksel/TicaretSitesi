@@ -13,7 +13,10 @@ resource "aws_lambda_function" "auth" {
   memory_size      = 128
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment { variables = merge(var.lambda_env_common, { FUNCTION_NAME = "auth" }) }
 }
 
@@ -28,7 +31,10 @@ resource "aws_lambda_function" "products" {
   memory_size      = 256
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME    = "products"
@@ -48,7 +54,10 @@ resource "aws_lambda_function" "orders" {
   memory_size      = 256
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME         = "orders"
@@ -69,7 +78,10 @@ resource "aws_lambda_function" "seller" {
   memory_size      = 256
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME            = "seller"
@@ -91,7 +103,10 @@ resource "aws_lambda_function" "webhooks" {
   memory_size      = 128
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME           = "webhooks"
@@ -114,7 +129,10 @@ resource "aws_lambda_function" "publisher" {
   memory_size      = 512
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME       = "publisher"
@@ -134,7 +152,10 @@ resource "aws_lambda_function" "finance_worker" {
   memory_size      = 256
   filename         = local.common_lambda.filename
   source_code_hash = local.common_lambda.hash
-  vpc_config { subnet_ids = local.common_lambda.subnets; security_group_ids = local.common_lambda.sg }
+  vpc_config {
+    subnet_ids         = local.common_lambda.subnets
+    security_group_ids = local.common_lambda.sg
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME     = "finance-worker"

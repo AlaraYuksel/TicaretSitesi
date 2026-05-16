@@ -8,7 +8,10 @@ variable "aws_region"              { type = string }
 variable "vpc_id"                  { type = string }
 variable "private_subnet_ids"      { type = list(string) }
 variable "lambda_env_common"       { type = map(string) }
-variable "gemini_api_key"          { type = string; sensitive = true }
+variable "gemini_api_key" {
+  type      = string
+  sensitive = true
+}
 variable "gemini_model"            { type = string }
 variable "ses_sender_email"        { type = string }
 variable "dynamodb_table_arn"      { type = string }
@@ -59,7 +62,10 @@ resource "aws_iam_role_policy" "ai_services" {
 data "archive_file" "ai_placeholder" {
   type        = "zip"
   output_path = "${path.module}/ai_placeholder.zip"
-  source { content = "placeholder"; filename = "bootstrap" }
+  source {
+    content  = "placeholder"
+    filename = "bootstrap"
+  }
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -77,7 +83,10 @@ resource "aws_lambda_function" "chatbot" {
   memory_size      = 256
   filename         = data.archive_file.ai_placeholder.output_path
   source_code_hash = data.archive_file.ai_placeholder.output_base64sha256
-  vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_sg_id]
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME  = "ai-chatbot"
@@ -98,7 +107,10 @@ resource "aws_lambda_function" "product_qa" {
   memory_size      = 256
   filename         = data.archive_file.ai_placeholder.output_path
   source_code_hash = data.archive_file.ai_placeholder.output_base64sha256
-  vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_sg_id]
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME  = "ai-product-qa"
@@ -119,7 +131,10 @@ resource "aws_lambda_function" "vision" {
   memory_size      = 512
   filename         = data.archive_file.ai_placeholder.output_path
   source_code_hash = data.archive_file.ai_placeholder.output_base64sha256
-  vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_sg_id]
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME  = "ai-vision"
@@ -140,7 +155,10 @@ resource "aws_lambda_function" "site_builder" {
   memory_size      = 1024
   filename         = data.archive_file.ai_placeholder.output_path
   source_code_hash = data.archive_file.ai_placeholder.output_base64sha256
-  vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_sg_id]
+  }
   environment {
     variables = merge(var.lambda_env_common, {
       FUNCTION_NAME  = "ai-site-builder"
@@ -161,7 +179,10 @@ resource "aws_lambda_function" "recommendation" {
   memory_size      = 256
   filename         = data.archive_file.ai_placeholder.output_path
   source_code_hash = data.archive_file.ai_placeholder.output_base64sha256
-  vpc_config { subnet_ids = var.private_subnet_ids; security_group_ids = [var.lambda_sg_id] }
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_sg_id]
+  }
   environment {
     variables = merge(var.lambda_env_common, { FUNCTION_NAME = "ai-recommendation" })
   }
@@ -183,53 +204,73 @@ resource "aws_lambda_permission" "eventbridge_recommendation" {
 
 # ── AI API Gateway Routes ────────────────────────────────────────────────────
 resource "aws_apigatewayv2_integration" "chatbot" {
-  api_id = var.api_gateway_id; integration_type = "AWS_PROXY"
-  integration_uri = aws_lambda_function.chatbot.invoke_arn; payload_format_version = "2.0"
+  api_id                 = var.api_gateway_id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.chatbot.invoke_arn
+  payload_format_version = "2.0"
 }
 resource "aws_apigatewayv2_integration" "product_qa" {
-  api_id = var.api_gateway_id; integration_type = "AWS_PROXY"
-  integration_uri = aws_lambda_function.product_qa.invoke_arn; payload_format_version = "2.0"
+  api_id                 = var.api_gateway_id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.product_qa.invoke_arn
+  payload_format_version = "2.0"
 }
 resource "aws_apigatewayv2_integration" "vision" {
-  api_id = var.api_gateway_id; integration_type = "AWS_PROXY"
-  integration_uri = aws_lambda_function.vision.invoke_arn; payload_format_version = "2.0"
+  api_id                 = var.api_gateway_id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.vision.invoke_arn
+  payload_format_version = "2.0"
 }
 resource "aws_apigatewayv2_integration" "site_builder" {
-  api_id = var.api_gateway_id; integration_type = "AWS_PROXY"
-  integration_uri = aws_lambda_function.site_builder.invoke_arn; payload_format_version = "2.0"
+  api_id                 = var.api_gateway_id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.site_builder.invoke_arn
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_route" "chatbot" {
-  api_id = var.api_gateway_id; route_key = "POST /api/ai/chat"
-  target = "integrations/${aws_apigatewayv2_integration.chatbot.id}"
+  api_id    = var.api_gateway_id
+  route_key = "POST /api/ai/chat"
+  target    = "integrations/${aws_apigatewayv2_integration.chatbot.id}"
 }
 resource "aws_apigatewayv2_route" "product_qa" {
-  api_id = var.api_gateway_id; route_key = "POST /api/ai/product-qa"
-  target = "integrations/${aws_apigatewayv2_integration.product_qa.id}"
+  api_id    = var.api_gateway_id
+  route_key = "POST /api/ai/product-qa"
+  target    = "integrations/${aws_apigatewayv2_integration.product_qa.id}"
 }
 resource "aws_apigatewayv2_route" "vision" {
-  api_id = var.api_gateway_id; route_key = "POST /api/ai/vision"
-  target = "integrations/${aws_apigatewayv2_integration.vision.id}"
+  api_id    = var.api_gateway_id
+  route_key = "POST /api/ai/vision"
+  target    = "integrations/${aws_apigatewayv2_integration.vision.id}"
 }
 resource "aws_apigatewayv2_route" "site_builder" {
-  api_id = var.api_gateway_id; route_key = "POST /api/ai/build-site"
-  target = "integrations/${aws_apigatewayv2_integration.site_builder.id}"
+  api_id    = var.api_gateway_id
+  route_key = "POST /api/ai/build-site"
+  target    = "integrations/${aws_apigatewayv2_integration.site_builder.id}"
 }
 
 # Lambda permissions for AI routes
 resource "aws_lambda_permission" "apigw_chatbot" {
-  action = "lambda:InvokeFunction"; function_name = aws_lambda_function.chatbot.function_name
-  principal = "apigateway.amazonaws.com"; source_arn = "${var.api_gateway_execution_arn}/*/*"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.chatbot.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }
 resource "aws_lambda_permission" "apigw_product_qa" {
-  action = "lambda:InvokeFunction"; function_name = aws_lambda_function.product_qa.function_name
-  principal = "apigateway.amazonaws.com"; source_arn = "${var.api_gateway_execution_arn}/*/*"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.product_qa.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }
 resource "aws_lambda_permission" "apigw_vision" {
-  action = "lambda:InvokeFunction"; function_name = aws_lambda_function.vision.function_name
-  principal = "apigateway.amazonaws.com"; source_arn = "${var.api_gateway_execution_arn}/*/*"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.vision.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }
 resource "aws_lambda_permission" "apigw_site_builder" {
-  action = "lambda:InvokeFunction"; function_name = aws_lambda_function.site_builder.function_name
-  principal = "apigateway.amazonaws.com"; source_arn = "${var.api_gateway_execution_arn}/*/*"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.site_builder.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }
