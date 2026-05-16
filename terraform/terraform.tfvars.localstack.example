@@ -19,9 +19,10 @@ domain_name = "iluvcode.art"
 
 # ─── Edge / Cloudflare ───────────────────────────────────────────────────────
 # LocalStack Cloudflare'ı emüle ETMEZ → edge modülü tamamen atlanır.
+# Token kullanılmaz ama provider yine de FORMAT doğrular: 40 karakter, harf+rakam.
 enable_edge           = false
-cloudflare_account_id = "ls-dummy-account-id"
-cloudflare_api_token  = "ls-dummy-cloudflare-token"
+cloudflare_account_id = "0123456789abcdef0123456789abcdef"
+cloudflare_api_token  = "localstackdummytokenABCDEF0123456789abcd"
 
 # ─── Veritabanı (RDS) ────────────────────────────────────────────────────────
 db_username       = "platform_admin"
