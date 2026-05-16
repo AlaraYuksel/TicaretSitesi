@@ -98,7 +98,7 @@ resource "cloudflare_record" "acm_validation" {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 resource "cloudflare_ruleset" "cache_rules" {
-  zone_id     = cloudflare_zone.main.id
+  zone_id     = var.cloudflare_zone_id
   name        = "Cache Rules"
   description = "Statik dosya cache kuralları"
   kind        = "zone"
