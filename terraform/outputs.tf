@@ -71,7 +71,7 @@ output "deployment_summary" {
     ║  API Gateway    : ${module.compute.api_gateway_invoke_url}   ║
     ║                                                              ║
     ║  ⚡ Cloudflare Nameservers:                                  ║
-    ║  ${join("\n    ║  ", try(one(cloudflare_zone.main[*].name_servers), ["(edge devre disi)"]))}                ║
+    ║  ${join("\n    ║  ", var.enable_edge ? cloudflare_zone.main[0].name_servers : ["(edge devre disi)"])}                ║
     ║                                                              ║
     ║  S3 React       : ${module.data.s3_react_bucket}             ║
     ║  S3 Assets      : ${module.data.s3_assets_bucket}            ║

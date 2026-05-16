@@ -11,7 +11,11 @@ services:
       - "4566:4566"          # tüm AWS servisleri tek port üzerinden
     environment:
       - DEBUG=0
-      - SERVICES=lambda,s3,dynamodb,sqs,apigateway,iam,sts,events,ec2,rds,acm,logs
+      # Ucretsiz LocalStack token — terminalde 'export LOCALSTACK_AUTH_TOKEN=...' ile verilir.
+      # Bu dosyaya GERCEK token YAZILMAZ — sadece referans (repo public olunca guvenli).
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:-}
+      # rds + acm Pro ozelligidir — ucretsiz katmanda calismaz, listeden cikarildi.
+      - SERVICES=lambda,s3,dynamodb,sqs,apigateway,iam,sts,events,ec2,logs
       - LAMBDA_RUNTIME_EXECUTOR=docker
       - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
