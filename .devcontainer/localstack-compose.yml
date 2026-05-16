@@ -1,0 +1,22 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# LocalStack — AWS servislerini Codespaces içinde yerel olarak emüle eder
+# Başlat:  docker compose -f .devcontainer/localstack-compose.yml up -d
+# Durdur:  docker compose -f .devcontainer/localstack-compose.yml down
+# ═══════════════════════════════════════════════════════════════════════════════
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"          # tüm AWS servisleri tek port üzerinden
+    environment:
+      - DEBUG=0
+      - SERVICES=lambda,s3,dynamodb,sqs,apigateway,iam,sts,events,ec2,rds,acm,logs
+      - LAMBDA_RUNTIME_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "localstack-data:/var/lib/localstack"
+
+volumes:
+  localstack-data:

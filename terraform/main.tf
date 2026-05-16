@@ -86,7 +86,8 @@ locals {
     S3_PUBLISHED_BUCKET = module.data.s3_published_bucket
     DOMAIN_NAME         = var.domain_name
     CLOUDFLARE_API_TOKEN = var.cloudflare_api_token
-    CLOUDFLARE_ZONE_ID   = module.edge.cloudflare_zone_id
+    # edge modülü kapalıyken (LocalStack) boş string
+    CLOUDFLARE_ZONE_ID   = try(one(module.edge[*].cloudflare_zone_id), "")
   }
 }
 
@@ -201,6 +202,9 @@ module "ai" {
 # Cloudflare DNS + CDN + SSL + WAF (CloudFront KALDIRILDI)
 module "edge" {
   source = "./modules/edge"
+
+  # LocalStack testinde enable_edge=false → Cloudflare modülü atlanır
+  count = var.enable_edge ? 1 : 0
 
   name_prefix           = local.name_prefix
   domain_name           = var.domain_name

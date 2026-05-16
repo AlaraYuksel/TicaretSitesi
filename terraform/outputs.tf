@@ -4,12 +4,12 @@
 
 output "cloudflare_nameservers" {
   description = "Registrar'da bu nameserver'lara geçin (iluvcode.art)"
-  value       = module.edge.nameservers
+  value       = try(one(module.edge[*].nameservers), null)
 }
 
 output "cloudflare_zone_id" {
   description = "Cloudflare Zone ID"
-  value       = module.edge.cloudflare_zone_id
+  value       = try(one(module.edge[*].cloudflare_zone_id), null)
 }
 
 output "api_gateway_url" {
@@ -71,7 +71,7 @@ output "deployment_summary" {
     ║  API Gateway    : ${module.compute.api_gateway_invoke_url}   ║
     ║                                                              ║
     ║  ⚡ Cloudflare Nameservers:                                  ║
-    ║  ${join("\n    ║  ", module.edge.nameservers)}                ║
+    ║  ${join("\n    ║  ", try(one(module.edge[*].nameservers), ["(edge devre disi)"]))}                ║
     ║                                                              ║
     ║  S3 React       : ${module.data.s3_react_bucket}             ║
     ║  S3 Assets      : ${module.data.s3_assets_bucket}            ║

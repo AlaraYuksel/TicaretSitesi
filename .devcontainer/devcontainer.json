@@ -1,0 +1,39 @@
+{
+  "name": "TicaretSitesi — Terraform + LocalStack",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  // ─── Araçlar (Codespaces konteynerine kurulur, bilgisayarınıza DEĞİL) ───────
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "latest",
+      "tflint": "latest"
+    },
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.26" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+  },
+
+  // ─── Konteyner ilk kurulduğunda çalışır ────────────────────────────────────
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  // ─── VS Code eklentileri ────────────────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform",
+        "golang.go",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+
+  // ─── LocalStack ve servis portları ──────────────────────────────────────────
+  "forwardPorts": [4566, 8080, 5173],
+  "portsAttributes": {
+    "4566": { "label": "LocalStack" },
+    "8080": { "label": "Backend (Go)" },
+    "5173": { "label": "Frontend (Vite)" }
+  }
+}

@@ -1,0 +1,47 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# LocalStack Test Değişkenleri — SAHTE/DUMMY değerler
+# ═══════════════════════════════════════════════════════════════════════════════
+# Kullanım:
+#   cp terraform.tfvars.localstack.example terraform.tfvars
+#   tflocal init && tflocal plan && tflocal apply
+#
+# Buradaki değerler GERÇEK DEĞİL — sadece LocalStack emülasyonu için.
+# Gerçek AWS'e ASLA bu dosyayla deploy etmeyin.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── Genel ────────────────────────────────────────────────────────────────────
+project_name = "marketplace"
+environment  = "dev"
+aws_region   = "eu-central-1"
+
+# ─── Domain ───────────────────────────────────────────────────────────────────
+domain_name = "iluvcode.art"
+
+# ─── Edge / Cloudflare ───────────────────────────────────────────────────────
+# LocalStack Cloudflare'ı emüle ETMEZ → edge modülü tamamen atlanır.
+enable_edge           = false
+cloudflare_account_id = "ls-dummy-account-id"
+cloudflare_api_token  = "ls-dummy-cloudflare-token"
+
+# ─── Veritabanı (RDS) ────────────────────────────────────────────────────────
+db_username       = "platform_admin"
+db_password       = "LocalStackTestPassword123"
+db_name           = "platform_prod"
+db_instance_class = "db.t3.micro"
+
+# ─── Ödeme (Stripe / EasyPost) — sahte test anahtarları ──────────────────────
+stripe_secret_key        = "sk_test_localstack_dummy"
+stripe_webhook_secret    = "whsec_localstack_dummy"
+stripe_connect_client_id = "ca_localstack_dummy"
+easypost_api_key         = "EZTKlocalstackdummy"
+easypost_webhook_secret  = "easypost_localstack_dummy"
+
+# ─── AI (Gemini) — sahte anahtar ─────────────────────────────────────────────
+gemini_api_key = "AIzaSyLocalStackDummyKeyForTesting"
+gemini_model   = "gemini-2.5-pro"
+
+# ─── Auth ────────────────────────────────────────────────────────────────────
+jwt_secret = "localstack-test-jwt-secret-min-32-characters!!"
+
+# ─── SES ─────────────────────────────────────────────────────────────────────
+ses_sender_email = "test@iluvcode.art"

@@ -38,6 +38,15 @@ variable "domain_name" {
   type        = string
 }
 
+# ─── Edge / LocalStack Testi ─────────────────────────────────────────────────
+# LocalStack AWS'i emüle eder ama Cloudflare'ı ETMEZ. LocalStack üzerinde test
+# yaparken bunu false yapın → edge (Cloudflare) modülü tamamen atlanır.
+variable "enable_edge" {
+  description = "Cloudflare edge modülünü aç/kapat (LocalStack testinde false yapın)"
+  type        = bool
+  default     = true
+}
+
 # ─── Cloudflare (CloudFront yerine) ──────────────────────────────────────────
 variable "cloudflare_api_token" {
   description = "Cloudflare API token (Zone:Edit, DNS:Edit izinleri)"
