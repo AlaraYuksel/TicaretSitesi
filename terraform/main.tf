@@ -86,8 +86,35 @@ locals {
     S3_PUBLISHED_BUCKET = module.data.s3_published_bucket
     DOMAIN_NAME         = var.domain_name
     CLOUDFLARE_API_TOKEN = var.cloudflare_api_token
-    # edge modülü kapalıyken (LocalStack) boş string
-    CLOUDFLARE_ZONE_ID   = try(one(module.edge[*].cloudflare_zone_id), "")
+    # zone kök modülde; enable_edge=false iken boş string
+    CLOUDFLARE_ZONE_ID   = var.enable_edge ? cloudflare_zone.main[0].id : ""
+  }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLOUDFLARE ZONE — kök seviyede (modüller arası cycle'ı kırmak için)
+# Zone yalnızca domain/hesap bilgisine bağlı; compute'a bağımlı DEĞİL.
+# LocalStack testinde enable_edge=false → zone oluşturulmaz.
+# ═══════════════════════════════════════════════════════════════════════════════
+resource "cloudflare_zone" "main" {
+  count = var.enable_edge ? 1 : 0
+
+  account_id = var.cloudflare_account_id
+  zone       = var.domain_name
+  plan       = "free"
+}
+
+# SSL: Full — Cloudflare ↔ Origin arası HTTPS (Lambda URL + API GW destekler)
+resource "cloudflare_zone_settings_override" "main" {
+  count = var.enable_edge ? 1 : 0
+
+  zone_id = cloudflare_zone.main[0].id
+  settings {
+    ssl               = "full"
+    always_use_https  = "on"
+    min_tls_version   = "1.2"
+    browser_cache_ttl = 14400 # 4 saat
+    security_level    = "medium"
   }
 }
 
@@ -206,9 +233,9 @@ module "edge" {
   # LocalStack testinde enable_edge=false → Cloudflare modülü atlanır
   count = var.enable_edge ? 1 : 0
 
-  name_prefix           = local.name_prefix
-  domain_name           = var.domain_name
-  cloudflare_account_id = var.cloudflare_account_id
+  name_prefix       = local.name_prefix
+  domain_name       = var.domain_name
+  cloudflare_zone_id = var.enable_edge ? cloudflare_zone.main[0].id : ""
 
   # API Gateway Custom Domain hedefi
   api_gw_custom_domain_target = module.compute.api_gw_custom_domain_target

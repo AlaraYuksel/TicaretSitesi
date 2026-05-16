@@ -23,7 +23,9 @@ terraform {
 # ─── Değişkenler ──────────────────────────────────────────────────────────────
 variable "name_prefix"            { type = string }
 variable "domain_name"            { type = string }
-variable "cloudflare_account_id"  { type = string }
+
+# Cloudflare zone kök modülde oluşturulur (cycle'ı kırmak için) — buraya parametre gelir
+variable "cloudflare_zone_id"     { type = string }
 
 # API Gateway custom domain hedefi (xxx.execute-api.eu-central-1.amazonaws.com)
 variable "api_gw_custom_domain_target" { type = string }
@@ -42,35 +44,13 @@ variable "acm_cert_validation_records" {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Cloudflare Zone
-# ═══════════════════════════════════════════════════════════════════════════════
-
-resource "cloudflare_zone" "main" {
-  account_id = var.cloudflare_account_id
-  zone       = var.domain_name
-  plan       = "free"
-}
-
-# SSL: Full — Cloudflare ↔ Origin arası HTTPS (Lambda URL + API GW destekler)
-resource "cloudflare_zone_settings_override" "main" {
-  zone_id = cloudflare_zone.main.id
-  settings {
-    ssl              = "full"
-    always_use_https = "on"
-    min_tls_version  = "1.2"
-    browser_cache_ttl = 14400  # 4 saat
-    security_level   = "medium"
-  }
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# DNS Kayıtları
+# DNS Kayıtları  (Zone + SSL ayarları kök modüle taşındı — cycle önlemi)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Platform ana domain → API Gateway Custom Domain
 # iluvcode.art → API GW (hem /api/* hem SPA serve eder)
 resource "cloudflare_record" "platform" {
-  zone_id = cloudflare_zone.main.id
+  zone_id = var.cloudflare_zone_id
   name    = "@"
   content = var.api_gw_custom_domain_target
   type    = "CNAME"
@@ -79,7 +59,7 @@ resource "cloudflare_record" "platform" {
 }
 
 resource "cloudflare_record" "platform_www" {
-  zone_id = cloudflare_zone.main.id
+  zone_id = var.cloudflare_zone_id
   name    = "www"
   content = var.api_gw_custom_domain_target
   type    = "CNAME"
@@ -90,7 +70,7 @@ resource "cloudflare_record" "platform_www" {
 # Wildcard → Lambda Function URL (Published Sites)
 # ahmet.iluvcode.art → Domain Router Lambda
 resource "cloudflare_record" "wildcard_sites" {
-  zone_id = cloudflare_zone.main.id
+  zone_id = var.cloudflare_zone_id
   name    = "*"
   content = var.domain_router_url_domain
   type    = "CNAME"
@@ -105,7 +85,7 @@ resource "cloudflare_record" "wildcard_sites" {
 resource "cloudflare_record" "acm_validation" {
   for_each = { for r in var.acm_cert_validation_records : r.name => r }
 
-  zone_id = cloudflare_zone.main.id
+  zone_id = var.cloudflare_zone_id
   name    = each.value.name
   content = each.value.record
   type    = each.value.type
@@ -165,13 +145,5 @@ resource "cloudflare_ruleset" "cache_rules" {
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OUTPUTS
+# Not: cloudflare_zone_id ve nameservers artık kök modülde (cycle önlemi)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-output "cloudflare_zone_id" {
-  value = cloudflare_zone.main.id
-}
-
-output "nameservers" {
-  description = "Registrar'da bu nameserver'lara geçin"
-  value       = cloudflare_zone.main.name_servers
-}
