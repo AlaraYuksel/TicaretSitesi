@@ -88,6 +88,11 @@ override.tf.json
 terraform.tfvars
 *.auto.tfvars
 
+# Kaydedilmiş plan dosyaları — state gibi sırları DÜZ METİN içerir, ASLA commit etme!
+tfplan
+*.tfplan
+*.tfplan.*
+
 # Lambda placeholder zip
 **/placeholder.zip
 **/ai_placeholder.zip
