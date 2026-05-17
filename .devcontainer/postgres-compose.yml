@@ -1,0 +1,24 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Yerel test veritabanı — PostgreSQL + pgvector (RDS'in Codespaces karşılığı)
+# test-app.sh tarafından otomatik başlatılır.
+# ═══════════════════════════════════════════════════════════════════════════════
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ticaret-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ticaret-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  ticaret-pgdata:
