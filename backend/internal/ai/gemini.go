@@ -18,6 +18,11 @@ const (
 	DefaultModel = "gemini-2.5-flash"
 	FastModel    = "gemini-2.5-flash"
 	apiBase      = "https://generativelanguage.googleapis.com/v1beta/models"
+
+	// EmbeddingModel — anlamsal arama vektörleri için Gemini embedding modeli.
+	EmbeddingModel = "gemini-embedding-001"
+	// EmbeddingDim — published_products.embedding kolonu vector(768) ile uyumlu olmalı.
+	EmbeddingDim = 768
 )
 
 // GeminiClient Gemini Generative Language API'sine REST üzerinden istek atar.
@@ -170,6 +175,73 @@ func (c *GeminiClient) GenerateWithTools(
 		return nil, fmt.Errorf("Gemini boş yanıt döndü")
 	}
 	return &resp.Candidates[0], nil
+}
+
+// ─── Embedding ────────────────────────────────────────────────────────────────
+
+type embedRequest struct {
+	Model                string  `json:"model"`
+	Content              Content `json:"content"`
+	OutputDimensionality int     `json:"outputDimensionality,omitempty"`
+}
+
+type embedResponse struct {
+	Embedding struct {
+		Values []float32 `json:"values"`
+	} `json:"embedding"`
+}
+
+// GenerateEmbedding metni EmbeddingDim boyutlu bir vektöre çevirir.
+// Anlamsal (vektörel) arama için published_products.embedding kolonuna yazılır.
+func (c *GeminiClient) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
+	reqBody := embedRequest{
+		Model:                "models/" + EmbeddingModel,
+		Content:              Content{Parts: []Part{{Text: text}}},
+		OutputDimensionality: EmbeddingDim,
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("embedding istek marshal hatası: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/%s:embedContent?key=%s", apiBase, EmbeddingModel, c.apiKey)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("embedding isteği oluşturulamadı: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * 2 * time.Second)
+		}
+		httpResp, err := c.http.Do(httpReq.Clone(ctx))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		respBody, _ := io.ReadAll(httpResp.Body)
+		httpResp.Body.Close()
+
+		if httpResp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("Gemini embed %d: %s", httpResp.StatusCode, string(respBody))
+			continue
+		}
+		if httpResp.StatusCode >= 400 {
+			return nil, fmt.Errorf("Gemini embed %d: %s", httpResp.StatusCode, string(respBody))
+		}
+
+		var resp embedResponse
+		if err := json.Unmarshal(respBody, &resp); err != nil {
+			return nil, fmt.Errorf("embedding yanıtı parse edilemedi: %w", err)
+		}
+		if len(resp.Embedding.Values) == 0 {
+			return nil, fmt.Errorf("Gemini boş embedding döndü")
+		}
+		return resp.Embedding.Values, nil
+	}
+	return nil, fmt.Errorf("Gemini embedding çağrısı başarısız: %w", lastErr)
 }
 
 func (c *GeminiClient) call(ctx context.Context, model string, req *generateRequest) (*GenerateResponse, error) {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"go-backend-projem/internal/ai"
 	dbpkg "go-backend-projem/internal/db"
 	"go-backend-projem/internal/middleware"
 	"go-backend-projem/internal/payments"
@@ -663,9 +664,14 @@ type extractedProduct struct {
 
 // SyncPublishedProductsForSite — Site publish edildiğinde site_data'dan ürünleri çıkarır
 // ve published_products tablosuna yansıtır. Silinmiş ürünleri tabloyla senkronize eder.
+//
+// gemini nil değilse her ürün için anlamsal arama embedding'i üretilir (AI Çözüm
+// Asistanı için). Embedding hatası yayınlamayı bloklamaz; sessiz loglanır ve
+// backfill-embeddings komutu sonradan eksikleri tamamlayabilir.
 func SyncPublishedProductsForSite(
 	ctx context.Context,
 	store *dbpkg.Store,
+	gemini *ai.GeminiClient,
 	siteID, userID string,
 	siteData json.RawMessage,
 	storeName string,
@@ -681,10 +687,10 @@ func SyncPublishedProductsForSite(
 		return 0, fmt.Errorf("cleanup: %w", err)
 	}
 
-	// Sonra: upsert
+	// Sonra: upsert (+ varsa embedding)
 	for _, p := range products {
 		slug := generateSlug(p.Title)
-		_, err := store.UpsertPublishedProduct(ctx, dbpkg.UpsertPublishedProductParams{
+		pp, err := store.UpsertPublishedProduct(ctx, dbpkg.UpsertPublishedProductParams{
 			SiteID:          siteID,
 			UserID:          userID,
 			SourceElementID: p.SourceElementID,
@@ -704,6 +710,15 @@ func SyncPublishedProductsForSite(
 		})
 		if err != nil {
 			log.Printf("UpsertPublishedProduct error (elem=%s): %v", p.SourceElementID, err)
+			continue
+		}
+		if gemini != nil {
+			emb, embErr := gemini.GenerateEmbedding(ctx, pp.EmbedText())
+			if embErr != nil {
+				log.Printf("Embedding hatası (elem=%s): %v", p.SourceElementID, embErr)
+			} else if err := store.UpdatePublishedProductEmbedding(ctx, pp.ID, emb); err != nil {
+				log.Printf("Embedding kaydı hatası (elem=%s): %v", p.SourceElementID, err)
+			}
 		}
 	}
 	return len(products), nil

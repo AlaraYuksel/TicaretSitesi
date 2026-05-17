@@ -273,6 +273,96 @@ export function apiAIExecutePlan(planId, siteId, onEvent) {
   return () => controller.abort();
 }
 
+// ─── AI Çözüm Asistanı (Marketplace sorun çözücü) ────────────────────────────
+
+// Sorunu çöz — SSE ile adım adım yayın. onEvent her olayda { type, ... } alır.
+// Olay tipleri: started, step, analyzed, searched, done, error.
+// Geri dönen fonksiyon stream'i iptal eder.
+export function apiAISolverSolve(problem, onEvent) {
+  const token = getToken();
+  const controller = new AbortController();
+
+  // Akış done/error ile bitmezse (bağlantı koparsa) butonun kalıcı kilitlenmemesi
+  // için terminal bir olay görüp görmediğimizi takip ederiz.
+  let gotTerminal = false;
+  const relay = (ev) => {
+    if (ev && (ev.type === 'done' || ev.type === 'error')) gotTerminal = true;
+    onEvent(ev);
+  };
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/marketplace/ai-solver/solve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ problem }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        relay({ type: 'error', message: body.error || `HTTP ${res.status}` });
+        return;
+      }
+      if (!res.body) {
+        relay({ type: 'error', message: 'Stream desteklenmiyor' });
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const line = raw.split('\n').find(l => l.startsWith('data: '));
+          if (!line) continue;
+          try {
+            relay(JSON.parse(line.slice(6)));
+          } catch (e) {
+            console.error('SSE parse hatası', e, line);
+          }
+        }
+      }
+      // Stream done/error olmadan kapandı → sunucu bağlantısı koptu.
+      if (!gotTerminal) {
+        relay({ type: 'error', message: 'Sunucu bağlantısı beklenmedik şekilde kapandı. Lütfen tekrar deneyin.' });
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        relay({ type: 'error', message: err.message || String(err) });
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
+// Çözümü kaydet — auth zorunlu. payload: { problem_text, analysis, package }.
+export async function apiAISolverSaveSolution(payload) {
+  return apiFetch('/marketplace/ai-solver/solutions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+// Kullanıcının kayıtlı çözümleri — auth zorunlu.
+export async function apiAISolverListSolutions() {
+  return apiFetch('/marketplace/ai-solver/solutions');
+}
+
+// Tek çözüm — auth zorunlu, yalnızca sahibi erişir.
+export async function apiAISolverGetSolution(id) {
+  return apiFetch(`/marketplace/ai-solver/solutions/${id}`);
+}
+
 // ─── Marketplace Alıcı: Profil + Adresler + Kayıtlı Kartlar (Auth) ───────────
 //
 // PCI not: yeni kart ekleme akışı tamamen Stripe.js (Elements) üzerinden ilerler.

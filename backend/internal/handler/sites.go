@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"go-backend-projem/internal/ai"
 	"go-backend-projem/internal/db"
 	"go-backend-projem/internal/middleware"
 )
@@ -14,12 +15,14 @@ import (
 type SiteHandler struct {
 	store    *db.Store
 	validate *validator.Validate
+	gemini   *ai.GeminiClient // nil olabilir — varsa publish'te ürün embedding'i üretilir
 }
 
-func NewSiteHandler(store *db.Store) *SiteHandler {
+func NewSiteHandler(store *db.Store, gemini *ai.GeminiClient) *SiteHandler {
 	return &SiteHandler{
 		store:    store,
 		validate: validator.New(),
+		gemini:   gemini,
 	}
 }
 
@@ -131,7 +134,7 @@ func (h *SiteHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	// Burada bir hata olursa siteyi unpublish etmiyoruz; sadece log düşüyoruz.
 	storeName := site.Title
 	count, syncErr := SyncPublishedProductsForSite(
-		r.Context(), h.store, site.ID, site.UserID, site.SiteData, storeName,
+		r.Context(), h.store, h.gemini, site.ID, site.UserID, site.SiteData, storeName,
 	)
 	if syncErr != nil {
 		log.Printf("Marketplace sync hatası (site=%s): %v", site.ID, syncErr)

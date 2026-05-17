@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"go-backend-projem/internal/ai"
 	"go-backend-projem/internal/config"
 	dbpkg "go-backend-projem/internal/db"
 	"go-backend-projem/internal/handler"
@@ -38,7 +39,14 @@ func main() {
 	// ─── Store & Handlers ─────────────────────────────────────────────────────
 	store := dbpkg.NewStore(pool)
 
-	siteHandler := handler.NewSiteHandler(store)
+	// Gemini istemcisi — GEMINI_API_KEY yoksa nil; AI özellikleri devre dışı kalır.
+	geminiClient, gErr := ai.NewGeminiClient()
+	if gErr != nil {
+		log.Printf("Gemini istemcisi devre dışı: %v", gErr)
+		geminiClient = nil
+	}
+
+	siteHandler := handler.NewSiteHandler(store, geminiClient)
 	serveHandler := handler.NewServeHandler(store, cfg)
 
 	// 🔄 COGNITO_SWITCH: Lokal auth handler.
@@ -71,6 +79,12 @@ func main() {
 	aiSiteBuilderHandler, aiErr := handler.NewAISiteBuilderHandler(store)
 	if aiErr != nil {
 		log.Printf("AI Site Builder devre dışı: %v", aiErr)
+	}
+
+	// AI Çözüm Asistanı (marketplace sorun çözücü) — Gemini gerektirir.
+	aiSolverHandler, solverErr := handler.NewAISolverHandler(store)
+	if solverErr != nil {
+		log.Printf("AI Çözüm Asistanı devre dışı: %v", solverErr)
 	}
 
 	// ─── Auth Middleware ──────────────────────────────────────────────────────
@@ -179,6 +193,16 @@ func main() {
 	if aiSiteBuilderHandler != nil {
 		mux.Handle("POST /api/ai/build-site/plan", auth(http.HandlerFunc(aiSiteBuilderHandler.PlanSite)))
 		mux.Handle("POST /api/ai/build-site/execute", auth(http.HandlerFunc(aiSiteBuilderHandler.ExecutePlan)))
+	}
+
+	// ── 🧩 AI Çözüm Asistanı (Marketplace sorun çözücü) ──────────────────────
+	// solve: auth gerektirmez (herkes deneyebilir). solutions: auth zorunlu —
+	// çözümler yalnızca oluşturan kullanıcının hesabından erişilir.
+	if aiSolverHandler != nil {
+		mux.HandleFunc("POST /api/marketplace/ai-solver/solve", aiSolverHandler.Solve)
+		mux.Handle("POST /api/marketplace/ai-solver/solutions", auth(http.HandlerFunc(aiSolverHandler.SaveSolution)))
+		mux.Handle("GET /api/marketplace/ai-solver/solutions", auth(http.HandlerFunc(aiSolverHandler.ListSolutions)))
+		mux.Handle("GET /api/marketplace/ai-solver/solutions/{id}", auth(http.HandlerFunc(aiSolverHandler.GetSolution)))
 	}
 
 	// ── Domain Serving ───────────────────────────────────────────────────────

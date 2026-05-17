@@ -6,6 +6,7 @@ import {
   isAuthenticated,
 } from '../lib/api';
 import { useCartStore } from '../store/useCartStore';
+import AISolverSection from '../components/marketplace/AISolverSection';
 
 const SORT_OPTIONS = [
   { value: 'popular', label: 'Popüler' },
@@ -270,6 +271,9 @@ export default function Marketplace() {
             }}>MAĞAZA AÇ</button>
         </div>
       </section>
+
+      {/* ── AI ÇÖZÜM ASİSTANI ──────────────────────────────────────── */}
+      <AISolverSection />
 
       {/* ── PRODUCT GRID ───────────────────────────────────────────── */}
       <section style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 24px' }}>

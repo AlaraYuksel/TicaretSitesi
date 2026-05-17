@@ -15,6 +15,7 @@ import MarketplaceCheckout from './pages/MarketplaceCheckout';
 import MarketplaceOrderSuccess from './pages/MarketplaceOrderSuccess';
 import MarketplaceAuth from './pages/MarketplaceAuth';
 import MarketplaceAccount from './pages/MarketplaceAccount';
+import MarketplaceSolutions from './pages/MarketplaceSolutions';
 import SellerQuestions from './pages/SellerQuestions';
 import SellerOrders from './pages/SellerOrders';
 import SellerBalance from './pages/SellerBalance';
@@ -79,6 +80,9 @@ function App() {
         <Route path="/marketplace/auth" element={<MarketplaceAuth />} />
         <Route path="/marketplace/account" element={
           <ProtectedRoute redirectTo="/marketplace/auth"><MarketplaceAccount /></ProtectedRoute>
+        } />
+        <Route path="/marketplace/solutions" element={
+          <ProtectedRoute redirectTo="/marketplace/auth"><MarketplaceSolutions /></ProtectedRoute>
         } />
 
         {/* Satıcı dashboard alt sayfaları */}
