@@ -1,24 +1,39 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import { isAuthenticated } from './lib/api';
 
-// Sayfalarımızı içe aktarıyoruz
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import Editor from './pages/Editor';
-import OrderTracker from './pages/OrderTracker';
-import Marketplace from './pages/Marketplace';
-import MarketplaceProduct from './pages/MarketplaceProduct';
-import MarketplaceCart from './pages/MarketplaceCart';
-import MarketplaceCheckout from './pages/MarketplaceCheckout';
-import MarketplaceOrderSuccess from './pages/MarketplaceOrderSuccess';
-import MarketplaceAuth from './pages/MarketplaceAuth';
-import MarketplaceAccount from './pages/MarketplaceAccount';
-import MarketplaceSolutions from './pages/MarketplaceSolutions';
-import SellerQuestions from './pages/SellerQuestions';
-import SellerOrders from './pages/SellerOrders';
-import SellerBalance from './pages/SellerBalance';
+// Sayfalar tembel (lazy) yüklenir — her sayfa kendi chunk'ı olur, yalnızca o
+// route'a gidildiğinde indirilir. Böylece açılış bundle'ı küçülür ve ödeme
+// sayfalarındaki Stripe.js gibi ağır bağımlılıklar gereksiz yere yüklenmez.
+const Auth = lazy(() => import('./pages/Auth'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Editor = lazy(() => import('./pages/Editor'));
+const OrderTracker = lazy(() => import('./pages/OrderTracker'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const MarketplaceProduct = lazy(() => import('./pages/MarketplaceProduct'));
+const MarketplaceCart = lazy(() => import('./pages/MarketplaceCart'));
+const MarketplaceCheckout = lazy(() => import('./pages/MarketplaceCheckout'));
+const MarketplaceOrderSuccess = lazy(() => import('./pages/MarketplaceOrderSuccess'));
+const MarketplaceAuth = lazy(() => import('./pages/MarketplaceAuth'));
+const MarketplaceAccount = lazy(() => import('./pages/MarketplaceAccount'));
+const MarketplaceSolutions = lazy(() => import('./pages/MarketplaceSolutions'));
+const SellerQuestions = lazy(() => import('./pages/SellerQuestions'));
+const SellerOrders = lazy(() => import('./pages/SellerOrders'));
+const SellerBalance = lazy(() => import('./pages/SellerBalance'));
+
+// Sayfa chunk'ı indirilirken gösterilen geçici ekran.
+function RouteFallback() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', background: '#0a0a0a', color: '#555',
+      fontFamily: 'Inter, sans-serif', fontSize: 14,
+    }}>
+      Yükleniyor...
+    </div>
+  );
+}
 
 // ─── Route Guard: Giriş yapmamış kullanıcıyı Auth'a yönlendir ───────────────
 function ProtectedRoute({ children, redirectTo = '/' }) {
@@ -62,6 +77,7 @@ function AuthRoute({ children }) {
 function App() {
   return (
     <Router>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* Ana sayfa olarak Auth (Giriş/Kayıt) ekranını gösteriyoruz */}
         <Route path="/" element={
@@ -106,6 +122,7 @@ function App() {
         {/* Olmayan bir URL girilirse Dashboard'a yönlendir */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </Suspense>
     </Router>
   );
 }

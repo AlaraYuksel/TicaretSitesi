@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements, CardElement, useStripe, useElements,
 } from '@stripe/react-stripe-js';
@@ -13,11 +12,7 @@ import {
   apiBuyerDeletePaymentMethod, apiBuyerSetDefaultPaymentMethod,
   apiBuyerListOrders, apiBuyerCancelOrder,
 } from '../lib/api';
-
-// Stripe.js publishable key (sk_test_*/pk_test_*). .env üzerinden alınır.
-// Eksikse "Yeni Kart Ekle" akışı aktif edilmez.
-const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
-const stripePromise = STRIPE_PK ? loadStripe(STRIPE_PK) : null;
+import { getStripe } from '../lib/stripe';
 
 const formatPrice = (kurus) => `₺${(kurus / 100).toFixed(2)}`;
 const formatDate = (iso) => iso ? new Date(iso).toLocaleString('tr-TR') : '';
@@ -263,6 +258,8 @@ function AddressForm({ initial, onCancel, onSaved }) {
 // ─── Ödeme Yöntemleri (Stripe Elements ile) ───────────────────────────
 
 function PaymentsTab() {
+  // Stripe.js yalnızca Ödeme Yöntemleri sekmesi açıldığında yüklenir (lazy).
+  const [stripePromise] = useState(() => getStripe());
   if (!stripePromise) {
     return (
       <Card>

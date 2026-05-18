@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements, CardElement, useStripe, useElements,
 } from '@stripe/react-stripe-js';
@@ -10,14 +9,14 @@ import {
   apiBuyerListAddresses, apiBuyerListPaymentMethods,
   isAuthenticated,
 } from '../lib/api';
+import { STRIPE_PK, getStripe } from '../lib/stripe';
 import { useAuthStore } from '../store/useAuthStore';
-
-const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
-const stripePromise = STRIPE_PK ? loadStripe(STRIPE_PK) : null;
 
 const formatPrice = (k) => `₺${(k / 100).toFixed(2)}`;
 
 export default function MarketplaceCheckout() {
+  // Stripe.js yalnızca bu sayfa açıldığında yüklenir (lazy).
+  const [stripePromise] = useState(() => getStripe());
   return (
     <Elements stripe={stripePromise}>
       <CheckoutInner />

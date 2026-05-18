@@ -42,7 +42,17 @@ export default function AISolverSection() {
   const [addedToCart, setAddedToCart] = useState(false);
 
   const cancelRef = useRef(null);
-  useEffect(() => () => { if (cancelRef.current) cancelRef.current(); }, []);
+  const timeoutRef = useRef(null);
+  useEffect(() => () => {
+    if (cancelRef.current) cancelRef.current();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  // finish — akışı sonlandırır: zaman aşımı sayacını temizler ve butonu açar.
+  const finish = () => {
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    setRunning(false);
+  };
 
   const reset = () => {
     setActiveStep(null);
@@ -66,6 +76,17 @@ export default function AISolverSection() {
     reset();
     setRunning(true);
 
+    // Güvenlik ağı: 120 sn içinde done/error gelmezse akışı zorla sonlandır,
+    // böylece buton ve metin kutusu hiçbir koşulda kalıcı kilitlenmez.
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      if (cancelRef.current) cancelRef.current();
+      setError('İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.');
+      setActiveStep(null);
+      setRunning(false);
+      timeoutRef.current = null;
+    }, 120000);
+
     cancelRef.current = apiAISolverSolve(problem.trim(), (ev) => {
       switch (ev.type) {
         case 'step':
@@ -82,11 +103,12 @@ export default function AISolverSection() {
           setPkg(ev.package);
           setDoneSteps(STEPS.map(s => s.key));
           setActiveStep(null);
-          setRunning(false);
+          finish();
           break;
         case 'error':
           setError(ev.message || 'Bir hata oluştu');
-          setRunning(false);
+          setActiveStep(null);
+          finish();
           break;
         default:
           break;
