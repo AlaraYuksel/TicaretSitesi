@@ -713,7 +713,12 @@ func SyncPublishedProductsForSite(
 			continue
 		}
 		if gemini != nil {
-			emb, embErr := gemini.GenerateEmbedding(ctx, pp.EmbedText())
+			// Her embedding çağrısı 10sn ile sınırlı: Gemini yavaş/erişilemez
+			// olsa bile publish isteği takılıp Lambda timeout'una düşmesin.
+			// Hata olursa loglanır ve ürün embedding'siz devam eder.
+			embCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			emb, embErr := gemini.GenerateEmbedding(embCtx, pp.EmbedText())
+			cancel()
 			if embErr != nil {
 				log.Printf("Embedding hatası (elem=%s): %v", p.SourceElementID, embErr)
 			} else if err := store.UpdatePublishedProductEmbedding(ctx, pp.ID, emb); err != nil {

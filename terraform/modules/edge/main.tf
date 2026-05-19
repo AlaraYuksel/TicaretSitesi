@@ -189,6 +189,26 @@ resource "cloudflare_ruleset" "waf_custom" {
   kind        = "zone"
   phase       = "http_request_firewall_custom"
 
+  # /api/* isteklerini WAF managed kurallarından MUAF tut.
+  # Editör, site içeriğini (HTML/script benzeri metinler içeren) JSON gövdeyle
+  # gönderir; managed WAF bunu saldırı sanıp 403 verebiliyordu. Bu skip kuralı
+  # EN ÜSTTE olmalı — eşleşen istek kalan kuralları ve managed fazı atlar.
+  rules {
+    action = "skip"
+    action_parameters {
+      ruleset = "current"
+      phases  = ["http_request_firewall_managed"]
+    }
+    # skip kuralları için Cloudflare provider'ı logging bloğu bekler
+    # (yoksa "inconsistent result after apply" hatası verir).
+    logging {
+      enabled = true
+    }
+    expression  = "(starts_with(http.request.uri.path, \"/api/\"))"
+    description = "API isteklerini WAF'tan muaf tut"
+    enabled     = true
+  }
+
   # Bilinen kötü/otomasyon user-agent'larını ve boş UA'ları zorla (challenge)
   rules {
     action      = "managed_challenge"

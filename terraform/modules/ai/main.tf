@@ -119,6 +119,15 @@ resource "aws_lambda_function_url" "site_builder" {
   }
 }
 
+# Function URL'in herkese açık çağrılabilmesi için gerekli izin (yoksa 403).
+resource "aws_lambda_permission" "site_builder_url" {
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.site_builder.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # AI SOLVER λ — Lambda Function URL + RESPONSE_STREAM
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -156,6 +165,15 @@ resource "aws_lambda_function_url" "ai_solver" {
     allow_headers = ["content-type", "authorization"]
     max_age       = 3600
   }
+}
+
+# Function URL'in herkese açık çağrılabilmesi için gerekli izin (yoksa 403).
+resource "aws_lambda_permission" "ai_solver_url" {
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.ai_solver.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

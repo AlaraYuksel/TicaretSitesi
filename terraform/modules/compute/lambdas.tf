@@ -22,13 +22,15 @@ resource "aws_lambda_function" "auth" {
 }
 
 # ── Sites λ ──────────────────────────────────────────────────────────────────
+# timeout 120s: publish, sitedeki her ürün için Gemini embedding üretir —
+# 15s yetmiyordu (publish 500 hatasının sebebiydi).
 resource "aws_lambda_function" "sites" {
   function_name    = "${var.name_prefix}-sites"
   role             = local.common_lambda.role
   handler          = local.common_lambda.handler
   runtime          = local.common_lambda.runtime
   architectures    = local.common_lambda.architectures
-  timeout          = 15
+  timeout          = 120
   memory_size      = 256
   filename         = local.lambda_zip["sites"]
   source_code_hash = filebase64sha256(local.lambda_zip["sites"])
@@ -295,6 +297,17 @@ resource "aws_lambda_function_url" "domain_router" {
     allow_methods = ["GET", "HEAD"]
     max_age       = 3600
   }
+}
+
+# authorization_type=NONE tek başına yetmez — Function URL'in herkese açık
+# çağrılabilmesi için lambda:InvokeFunctionUrl izni de gerekir (Console bunu
+# otomatik ekler, terraform'da elle eklenmeli). Yoksa 403 Forbidden döner.
+resource "aws_lambda_permission" "domain_router_url" {
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.domain_router.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
 }
 
 # ── Static Serve λ ──────────────────────────────────────────────────────────

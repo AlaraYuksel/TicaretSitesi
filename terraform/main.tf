@@ -118,7 +118,10 @@ resource "cloudflare_zone_settings_override" "main" {
     min_tls_version   = "1.2"
     browser_cache_ttl = 14400 # 4 saat
     security_level    = "medium"
-    browser_check     = "on" # Browser Integrity Check — temel bot/zararlı filtresi
+    # browser_check KAPALI: Browser Integrity Check, editörden gönderilen büyük
+    # JSON gövdeli /api isteklerini (site içeriği HTML benzeri dizeler içerir)
+    # şüpheli görüp 403 ile engelliyordu (publish/kaydet hatası).
+    browser_check = "off"
   }
 }
 
