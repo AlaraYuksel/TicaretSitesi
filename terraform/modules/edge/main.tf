@@ -43,6 +43,16 @@ variable "acm_cert_validation_records" {
   default = []
 }
 
+# AI Lambda Function URL domain'leri (SSE streaming endpoint'leri)
+variable "ai_site_builder_url_domain" {
+  type    = string
+  default = ""
+}
+variable "ai_solver_url_domain" {
+  type    = string
+  default = ""
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DNS Kayıtları  (Zone + SSL ayarları kök modüle taşındı — cycle önlemi)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -78,68 +88,146 @@ resource "cloudflare_record" "wildcard_sites" {
   comment = "Published Sites - Domain Router Lambda"
 }
 
+# AI Site Builder → Lambda Function URL (SSE streaming)
+# ai-builder.iluvcode.art → ai-site-builder Lambda
+# proxied=true: tarayıcı iluvcode.art TLS sertifikasını görür (Function URL'in
+# kendi sertifikası ai-builder.iluvcode.art ile eşleşmez). Cloudflare proxy'si
+# text/event-stream yanıtlarını buffer'lamaz — SSE sorunsuz akar.
+resource "cloudflare_record" "ai_site_builder" {
+  zone_id = var.cloudflare_zone_id
+  name    = "ai-builder"
+  content = var.ai_site_builder_url_domain
+  type    = "CNAME"
+  proxied = true
+  comment = "AI Site Builder - Lambda Function URL (streaming)"
+}
+
+# AI Solver → Lambda Function URL (SSE streaming)
+# ai-solver.iluvcode.art → ai-solver Lambda
+resource "cloudflare_record" "ai_solver" {
+  zone_id = var.cloudflare_zone_id
+  name    = "ai-solver"
+  content = var.ai_solver_url_domain
+  type    = "CNAME"
+  proxied = true
+  comment = "AI Solver - Lambda Function URL (streaming)"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACM Sertifika DNS Doğrulama (Cloudflare üzerinden)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# count kullanılır (for_each değil): doğrulama kaydı NAME'leri apply-zamanı
+# bilindiği için for_each anahtar olarak kullanamaz; ama kayıt SAYISI (domain
+# + SAN = 2) plan-zamanı bellidir.
 resource "cloudflare_record" "acm_validation" {
-  for_each = { for r in var.acm_cert_validation_records : r.name => r }
+  count = length(var.acm_cert_validation_records)
 
   zone_id = var.cloudflare_zone_id
-  name    = each.value.name
-  content = each.value.record
-  type    = each.value.type
-  proxied = false  # Doğrulama kayıtları proxy'lenmemeli
+  name    = var.acm_cert_validation_records[count.index].name
+  content = var.acm_cert_validation_records[count.index].record
+  type    = var.acm_cert_validation_records[count.index].type
+  proxied = false # Doğrulama kayıtları proxy'lenmemeli
   comment = "ACM SSL Doğrulama"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Cloudflare Cache Rules (Opsiyonel — statik dosyalar için)
+# Cloudflare Cache Rules — YORUM SATIRINDA
 # ═══════════════════════════════════════════════════════════════════════════════
+# Cache Rules ruleset'i için kullanılan API token "request is not authorized"
+# döndürdü — token'da Cache Rules izni yok. Opsiyonel bir performans
+# optimizasyonu olduğu (güvenlik değil) ve zone ayarlarında browser_cache_ttl
+# zaten tanımlı olduğu için yorum satırına alındı. Token'a "Cache Rules:Edit"
+# izni eklenirse geri açılabilir.
+#
+# resource "cloudflare_ruleset" "cache_rules" {
+#   zone_id     = var.cloudflare_zone_id
+#   name        = "Cache Rules"
+#   description = "Statik dosya cache kurallari"
+#   kind        = "zone"
+#   phase       = "http_request_cache_settings"
+#
+#   rules {
+#     action = "set_cache_settings"
+#     action_parameters {
+#       cache = true
+#       browser_ttl { mode = "override_origin", default = 604800 }
+#       edge_ttl    { mode = "override_origin", default = 604800 }
+#     }
+#     expression  = "(http.request.uri.path matches \"\\.(js|css|woff2|woff|ttf|ico|svg)$\")"
+#     description = "Cache static assets"
+#     enabled     = true
+#   }
+#   rules {
+#     action = "set_cache_settings"
+#     action_parameters {
+#       cache = true
+#       browser_ttl { mode = "override_origin", default = 2592000 }
+#       edge_ttl    { mode = "override_origin", default = 2592000 }
+#     }
+#     expression  = "(http.request.uri.path matches \"\\.(jpg|jpeg|png|gif|webp|avif)$\")"
+#     description = "Cache images"
+#     enabled     = true
+#   }
+# }
 
-resource "cloudflare_ruleset" "cache_rules" {
+# ═══════════════════════════════════════════════════════════════════════════════
+# GÜVENLİK — Cloudflare Free Plan
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# DDoS koruması: L3/L4/L7 otomatik, her zaman açık, ücretsiz — DNS kayıtları
+# proxied=true olduğu için terraform/yapılandırma gerektirmez.
+#
+# Bot Fight Mode: Free plan'de mevcut; terraform provider desteği kısıtlı
+# olduğundan deploy sonrası Cloudflare Dashboard → Security → Bots'tan açılmalı.
+
+# ── Custom WAF Kuralları (Free plan: 5 kurala kadar) ─────────────────────────
+resource "cloudflare_ruleset" "waf_custom" {
   zone_id     = var.cloudflare_zone_id
-  name        = "Cache Rules"
-  description = "Statik dosya cache kuralları"
+  name        = "Custom WAF Rules"
+  description = "Temel uygulama katmanı güvenlik kuralları"
   kind        = "zone"
-  phase       = "http_request_cache_settings"
+  phase       = "http_request_firewall_custom"
 
-  # JS/CSS dosyaları: 7 gün cache
+  # Bilinen kötü/otomasyon user-agent'larını ve boş UA'ları zorla (challenge)
   rules {
-    action = "set_cache_settings"
-    action_parameters {
-      cache = true
-      browser_ttl {
-        mode    = "override_origin"
-        default = 604800  # 7 gün
-      }
-      edge_ttl {
-        mode    = "override_origin"
-        default = 604800
-      }
-    }
-    expression  = "(http.request.uri.path matches \"\\.(js|css|woff2|woff|ttf|ico|svg)$\")"
-    description = "Cache static assets"
+    action      = "managed_challenge"
+    expression  = "(http.user_agent eq \"\") or (http.user_agent contains \"sqlmap\") or (http.user_agent contains \"nikto\") or (http.user_agent contains \"nmap\")"
+    description = "Supheli/otomasyon user-agent challenge"
     enabled     = true
   }
 
-  # Görseller: 30 gün cache
+  # Yaygın saldırı path'lerini blokla (WordPress vb. probe'lar)
   rules {
-    action = "set_cache_settings"
-    action_parameters {
-      cache = true
-      browser_ttl {
-        mode    = "override_origin"
-        default = 2592000  # 30 gün
-      }
-      edge_ttl {
-        mode    = "override_origin"
-        default = 2592000
-      }
-    }
-    expression  = "(http.request.uri.path matches \"\\.(jpg|jpeg|png|gif|webp|avif)$\")"
-    description = "Cache images"
+    action      = "block"
+    expression  = "(http.request.uri.path contains \"/wp-admin\") or (http.request.uri.path contains \"/wp-login\") or (http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\")"
+    description = "Yaygin acik tarama path'lerini blokla"
     enabled     = true
+  }
+}
+
+# ── Rate Limiting (Free plan: 1 kural) ───────────────────────────────────────
+# Login/register endpoint'lerinde brute-force koruması.
+resource "cloudflare_ruleset" "rate_limit" {
+  zone_id     = var.cloudflare_zone_id
+  name        = "Rate Limiting"
+  description = "Auth endpoint'leri icin IP basina istek limiti"
+  kind        = "zone"
+  phase       = "http_ratelimit"
+
+  rules {
+    action      = "block"
+    description = "Auth brute-force korumasi"
+    expression  = "(http.request.uri.path contains \"/api/auth/\")"
+    enabled     = true
+
+    ratelimit {
+      # Cloudflare Free plan: period yalnızca 10 saniye olabilir.
+      characteristics     = ["ip.src", "cf.colo.id"]
+      period              = 10
+      requests_per_period = 20
+      mitigation_timeout  = 10
+    }
   }
 }
 

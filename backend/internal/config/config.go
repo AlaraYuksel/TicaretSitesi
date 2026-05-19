@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config uygulama genelinde kullanılan ortam değişkenlerini tutar.
@@ -34,7 +36,12 @@ type Config struct {
 func Load() (*Config, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL ortam değişkeni zorunludur")
+		// AWS/Lambda ortamı: terraform DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME'i
+		// ayrı ayrı verir (lambda_env_common). Bunlardan bir DSN derle.
+		dbURL = buildDatabaseURL()
+	}
+	if dbURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL (veya DB_HOST/DB_USER/DB_PASSWORD/DB_NAME) ortam değişkeni zorunludur")
 	}
 
 	port := os.Getenv("PORT")
@@ -77,6 +84,43 @@ func Load() (*Config, error) {
 		EscrowReleaseDays:    escrowDays,
 		FrontendBaseURL:      frontend,
 	}, nil
+}
+
+// buildDatabaseURL, terraform'un Lambda'lara ayrı ayrı geçtiği DB_* ortam
+// değişkenlerinden bir PostgreSQL bağlantı URL'i derler. DATABASE_URL doğrudan
+// verilmişse (lokal/Docker) bu fonksiyon hiç çağrılmaz.
+//
+// Notlar:
+//   - RDS endpoint'i çoğu zaman "xxx.rds.amazonaws.com:5432" formatında gelir;
+//     port DB_PORT'tan ayrıca okunduğu için endpoint'teki ":port" eki ayıklanır.
+//   - RDS bağlantıları için sslmode varsayılan olarak "require" (DB_SSLMODE ile
+//     değiştirilebilir).
+//   - Kullanıcı adı/parola URL-encode edilir (parolada özel karakter olabilir).
+func buildDatabaseURL() string {
+	host := os.Getenv("DB_HOST")
+	if host == "" {
+		return ""
+	}
+	if i := strings.LastIndex(host, ":"); i > 0 {
+		host = host[:i] // "host:5432" -> "host"
+	}
+
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432"
+	}
+
+	sslmode := os.Getenv("DB_SSLMODE")
+	if sslmode == "" {
+		sslmode = "require"
+	}
+
+	user := url.QueryEscape(os.Getenv("DB_USER"))
+	pass := url.QueryEscape(os.Getenv("DB_PASSWORD"))
+	name := os.Getenv("DB_NAME")
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		user, pass, host, port, name, sslmode)
 }
 
 func atoiOr(s string, fallback int) int {

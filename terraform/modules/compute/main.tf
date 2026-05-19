@@ -56,7 +56,7 @@ variable "domain_name" {
 resource "aws_security_group" "lambda" {
   name_prefix = "${var.name_prefix}-lambda-"
   vpc_id      = var.vpc_id
-  description = "Lambda — internet cikisi (NAT) + RDS erisimi"
+  description = "Lambda internet egress via NAT and RDS access"
 
   egress {
     from_port   = 0
@@ -104,14 +104,11 @@ resource "aws_iam_role_policy" "lambda_services" {
   })
 }
 
-# ─── Placeholder zip ─────────────────────────────────────────────────────────
-data "archive_file" "placeholder" {
-  type        = "zip"
-  output_path = "${path.module}/placeholder.zip"
-  source {
-    content  = "placeholder"
-    filename = "bootstrap"
-  }
+# ─── Lambda derleme çıktıları ────────────────────────────────────────────────
+# backend/build_lambdas.ps1 her Lambda için <name>/<name>.zip üretir.
+variable "lambda_artifacts_dir" {
+  description = "Derlenmiş Lambda zip'lerinin bulunduğu dizin"
+  type        = string
 }
 
 locals {
@@ -120,9 +117,25 @@ locals {
     handler       = "bootstrap"
     runtime       = "provided.al2023"
     architectures = ["arm64"]
-    filename      = data.archive_file.placeholder.output_path
-    hash          = data.archive_file.placeholder.output_base64sha256
     subnets       = var.private_subnet_ids
     sg            = [aws_security_group.lambda.id]
   }
+
+  # Her Lambda'nın zip yolu — filename ve source_code_hash buradan okunur.
+  lambda_zip = {
+    for name in [
+      "auth", "sites", "products", "orders", "seller", "buyer", "webhooks",
+      "publisher", "finance-worker", "migrate", "domain-router", "static-serve",
+    ] : name => "${var.lambda_artifacts_dir}/${name}/${name}.zip"
+  }
+}
+
+# ─── Lambda CloudWatch Log Grupları ──────────────────────────────────────────
+# Açıkça terraform ile oluşturulur ki: (1) terraform destroy onları da silsin
+# (Lambda'nın kendi oluşturduğu log grupları aksi halde orphan kalır),
+# (2) retention test ortamı için 3 güne sabitlensin.
+resource "aws_cloudwatch_log_group" "lambda" {
+  for_each          = local.lambda_zip
+  name              = "/aws/lambda/${var.name_prefix}-${each.key}"
+  retention_in_days = 3
 }

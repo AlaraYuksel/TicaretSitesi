@@ -6,6 +6,12 @@
 
 const API_BASE = '/api';
 
+// AI endpoint'leri ayrı Lambda Function URL'lerinde çalışır (SSE streaming).
+// Lokal/dev'de bu env'ler boştur → Vite proxy üzerinden /api'ye gider.
+// Prod'da deploy script'i bunları ai-builder/ai-solver subdomain'lerine ayarlar.
+const AI_BUILDER_BASE = (import.meta.env.VITE_AI_BUILDER_URL || '') + '/api';
+const AI_SOLVER_BASE  = (import.meta.env.VITE_AI_SOLVER_URL || '') + '/api';
+
 // ─── Token Yönetimi ──────────────────────────────────────────────────────────
 
 export function getToken() {
@@ -26,7 +32,7 @@ export function isAuthenticated() {
 
 // ─── Fetch Wrapper ───────────────────────────────────────────────────────────
 
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}, base = API_BASE) {
   const token = getToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -34,7 +40,7 @@ async function apiFetch(path, options = {}) {
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${base}${path}`, {
     ...options,
     headers,
   });
@@ -210,7 +216,7 @@ export async function apiAIPlanSite(siteId, prompt, style) {
   return apiFetch('/ai/build-site/plan', {
     method: 'POST',
     body: JSON.stringify({ site_id: siteId, prompt, style: style || 'modern' }),
-  });
+  }, AI_BUILDER_BASE);
 }
 
 // Plan uygula — SSE ile progress stream'i.
@@ -222,7 +228,7 @@ export function apiAIExecutePlan(planId, siteId, onEvent) {
 
   (async () => {
     try {
-      const res = await fetch(`${API_BASE}/ai/build-site/execute`, {
+      const res = await fetch(`${AI_BUILDER_BASE}/ai/build-site/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -292,7 +298,7 @@ export function apiAISolverSolve(problem, onEvent) {
 
   (async () => {
     try {
-      const res = await fetch(`${API_BASE}/marketplace/ai-solver/solve`, {
+      const res = await fetch(`${AI_SOLVER_BASE}/marketplace/ai-solver/solve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,17 +356,17 @@ export async function apiAISolverSaveSolution(payload) {
   return apiFetch('/marketplace/ai-solver/solutions', {
     method: 'POST',
     body: JSON.stringify(payload),
-  });
+  }, AI_SOLVER_BASE);
 }
 
 // Kullanıcının kayıtlı çözümleri — auth zorunlu.
 export async function apiAISolverListSolutions() {
-  return apiFetch('/marketplace/ai-solver/solutions');
+  return apiFetch('/marketplace/ai-solver/solutions', {}, AI_SOLVER_BASE);
 }
 
 // Tek çözüm — auth zorunlu, yalnızca sahibi erişir.
 export async function apiAISolverGetSolution(id) {
-  return apiFetch(`/marketplace/ai-solver/solutions/${id}`);
+  return apiFetch(`/marketplace/ai-solver/solutions/${id}`, {}, AI_SOLVER_BASE);
 }
 
 // ─── Marketplace Alıcı: Profil + Adresler + Kayıtlı Kartlar (Auth) ───────────

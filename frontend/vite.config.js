@@ -7,6 +7,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    // Build çıktı varlıkları "static/" altına konur — "assets/" değil.
+    // static-serve Lambda'sı /assets/* isteklerini kullanıcı medya bucket'ına
+    // yönlendiriyor; Vite varsayılanı /assets/ ile çakışırdı.
+    assetsDir: 'static',
+  },
   server: {
     // Frontend: localhost:5173 → Backend API proxy: localhost:8080
     proxy: {

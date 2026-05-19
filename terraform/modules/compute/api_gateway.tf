@@ -1,5 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPUTE — API Gateway (HTTP API) + Route'lar
+# Route'lar gerçek backend (main.go) endpoint'leriyle birebir eşleşir.
+# AI endpoint'leri burada YOK — onlar Lambda Function URL kullanır (ai modülü).
 # ═══════════════════════════════════════════════════════════════════════════════
 
 resource "aws_apigatewayv2_api" "main" {
@@ -17,7 +19,7 @@ resource "aws_apigatewayv2_api" "main" {
 
 resource "aws_cloudwatch_log_group" "api_gw" {
   name              = "/aws/apigateway/${var.name_prefix}-api"
-  retention_in_days = 14
+  retention_in_days = 3 # test ortamı — maliyet için kısa tutuldu
 }
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -28,170 +30,136 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gw.arn
     format = jsonencode({
-      requestId  = "$context.requestId"
-      ip         = "$context.identity.sourceIp"
-      method     = "$context.httpMethod"
-      route      = "$context.routeKey"
-      status     = "$context.status"
+      requestId = "$context.requestId"
+      ip        = "$context.identity.sourceIp"
+      method    = "$context.httpMethod"
+      route     = "$context.routeKey"
+      status    = "$context.status"
     })
   }
 }
 
-# ── Lambda Integrations ──────────────────────────────────────────────────────
-resource "aws_apigatewayv2_integration" "auth" {
+# ── Lambda → integration / route / permission eşlemeleri ─────────────────────
+locals {
+  # API Gateway'e bağlı Lambda'lar (invoke_arn ve function_name)
+  api_lambda_arn = {
+    auth     = aws_lambda_function.auth.invoke_arn
+    sites    = aws_lambda_function.sites.invoke_arn
+    products = aws_lambda_function.products.invoke_arn
+    orders   = aws_lambda_function.orders.invoke_arn
+    seller   = aws_lambda_function.seller.invoke_arn
+    buyer    = aws_lambda_function.buyer.invoke_arn
+    webhooks = aws_lambda_function.webhooks.invoke_arn
+  }
+  api_lambda_name = {
+    auth     = aws_lambda_function.auth.function_name
+    sites    = aws_lambda_function.sites.function_name
+    products = aws_lambda_function.products.function_name
+    orders   = aws_lambda_function.orders.function_name
+    seller   = aws_lambda_function.seller.function_name
+    buyer    = aws_lambda_function.buyer.function_name
+    webhooks = aws_lambda_function.webhooks.function_name
+  }
+
+  # route_key → hangi Lambda. Kaynak: backend/main.go
+  routes = {
+    # Auth
+    "POST /api/auth/register" = "auth"
+    "POST /api/auth/login"    = "auth"
+    "GET /api/auth/me"        = "auth"
+
+    # Sites (editör)
+    "GET /api/sites"                 = "sites"
+    "POST /api/sites"                = "sites"
+    "GET /api/sites/{id}"            = "sites"
+    "PUT /api/sites/{id}/data"       = "sites"
+    "POST /api/sites/{id}/publish"   = "sites"
+    "POST /api/sites/{id}/unpublish" = "sites"
+    "DELETE /api/sites/{id}"         = "sites"
+
+    # Products + Marketplace ürün listeleme + Q&A
+    "GET /api/products"                             = "products"
+    "GET /api/products/{id}"                        = "products"
+    "POST /api/products"                            = "products"
+    "PUT /api/products/{id}"                        = "products"
+    "DELETE /api/products/{id}"                     = "products"
+    "GET /api/marketplace/products"                 = "products"
+    "GET /api/marketplace/products/{id}"            = "products"
+    "GET /api/marketplace/categories"               = "products"
+    "GET /api/marketplace/products/{id}/questions"  = "products"
+    "POST /api/marketplace/products/{id}/questions" = "products"
+
+    # Orders + Marketplace orders + Buyer orders + Storefront
+    "GET /api/orders"                                   = "orders"
+    "POST /api/orders"                                  = "orders"
+    "GET /api/orders/{id}"                              = "orders"
+    "POST /api/marketplace/orders"                      = "orders"
+    "GET /api/marketplace/orders/{orderNumber}"         = "orders"
+    "POST /api/marketplace/orders/{id}/confirm-payment" = "orders"
+    "GET /api/buyer/orders"                             = "orders"
+    "POST /api/buyer/orders/{id}/cancel"                = "orders"
+    "POST /api/storefront/orders"                       = "orders"
+    "POST /api/storefront/orders/track"                 = "orders"
+    "POST /api/storefront/orders/verify"                = "orders"
+    "GET /api/storefront/orders/detail/{orderNumber}"   = "orders"
+    "GET /api/storefront/sites/{siteId}/products"       = "orders"
+
+    # Seller paneli
+    "GET /api/seller/dashboard"                                = "seller"
+    "POST /api/seller/register"                                = "seller"
+    "POST /api/seller/connect"                                 = "seller"
+    "POST /api/seller/shipments"                               = "seller"
+    "GET /api/seller/questions"                                = "seller"
+    "POST /api/seller/questions/{id}/answer"                   = "seller"
+    "GET /api/seller/marketplace-orders"                       = "seller"
+    "GET /api/seller/marketplace-orders/{id}"                  = "seller"
+    "POST /api/seller/marketplace-orders/{id}/approve"         = "seller"
+    "POST /api/seller/marketplace-orders/{id}/reject"          = "seller"
+    "POST /api/seller/marketplace-orders/{id}/cancel"          = "seller"
+    "POST /api/seller/marketplace-orders/{id}/ship"            = "seller"
+    "POST /api/seller/marketplace-orders/{id}/mark-delivered"  = "seller"
+    "POST /api/seller/marketplace-orders/{id}/release-escrow"  = "seller"
+    "GET /api/seller/balance"                                  = "seller"
+
+    # Buyer profil / adres / ödeme yöntemleri
+    "PUT /api/buyer/profile"                          = "buyer"
+    "GET /api/buyer/addresses"                        = "buyer"
+    "POST /api/buyer/addresses"                       = "buyer"
+    "PUT /api/buyer/addresses/{id}"                   = "buyer"
+    "DELETE /api/buyer/addresses/{id}"                = "buyer"
+    "PUT /api/buyer/addresses/{id}/default"           = "buyer"
+    "POST /api/buyer/payment-methods/setup-intent"    = "buyer"
+    "GET /api/buyer/payment-methods"                  = "buyer"
+    "POST /api/buyer/payment-methods"                 = "buyer"
+    "DELETE /api/buyer/payment-methods/{id}"          = "buyer"
+    "PUT /api/buyer/payment-methods/{id}/default"     = "buyer"
+
+    # Webhooks
+    "POST /api/webhooks/stripe"   = "webhooks"
+    "POST /api/webhooks/easypost" = "webhooks"
+  }
+}
+
+resource "aws_apigatewayv2_integration" "lambda" {
+  for_each               = local.api_lambda_arn
   api_id                 = aws_apigatewayv2_api.main.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.auth.invoke_arn
+  integration_uri        = each.value
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_integration" "products" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.products.invoke_arn
-  payload_format_version = "2.0"
+resource "aws_apigatewayv2_route" "api" {
+  for_each  = local.routes
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = each.key
+  target    = "integrations/${aws_apigatewayv2_integration.lambda[each.value].id}"
 }
 
-resource "aws_apigatewayv2_integration" "orders" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.orders.invoke_arn
-  payload_format_version = "2.0"
-}
-
-resource "aws_apigatewayv2_integration" "seller" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.seller.invoke_arn
-  payload_format_version = "2.0"
-}
-
-resource "aws_apigatewayv2_integration" "webhooks" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.webhooks.invoke_arn
-  payload_format_version = "2.0"
-}
-
-# ── Routes ───────────────────────────────────────────────────────────────────
-# Auth
-resource "aws_apigatewayv2_route" "auth_register" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/auth/register"
-  target    = "integrations/${aws_apigatewayv2_integration.auth.id}"
-}
-resource "aws_apigatewayv2_route" "auth_login" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/auth/login"
-  target    = "integrations/${aws_apigatewayv2_integration.auth.id}"
-}
-resource "aws_apigatewayv2_route" "auth_me" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/auth/me"
-  target    = "integrations/${aws_apigatewayv2_integration.auth.id}"
-}
-
-# Products
-resource "aws_apigatewayv2_route" "products_list" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/products"
-  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
-}
-resource "aws_apigatewayv2_route" "products_create" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/products"
-  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
-}
-resource "aws_apigatewayv2_route" "products_get" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/products/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
-}
-resource "aws_apigatewayv2_route" "products_update" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "PUT /api/products/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
-}
-resource "aws_apigatewayv2_route" "products_delete" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "DELETE /api/products/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
-}
-
-# Orders
-resource "aws_apigatewayv2_route" "orders_list" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/orders"
-  target    = "integrations/${aws_apigatewayv2_integration.orders.id}"
-}
-resource "aws_apigatewayv2_route" "orders_create" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/orders"
-  target    = "integrations/${aws_apigatewayv2_integration.orders.id}"
-}
-resource "aws_apigatewayv2_route" "orders_get" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/orders/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.orders.id}"
-}
-
-# Seller
-resource "aws_apigatewayv2_route" "seller_dashboard" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/seller/dashboard"
-  target    = "integrations/${aws_apigatewayv2_integration.seller.id}"
-}
-resource "aws_apigatewayv2_route" "seller_connect" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/seller/connect"
-  target    = "integrations/${aws_apigatewayv2_integration.seller.id}"
-}
-resource "aws_apigatewayv2_route" "seller_shipments" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/seller/shipments"
-  target    = "integrations/${aws_apigatewayv2_integration.seller.id}"
-}
-
-# Webhooks
-resource "aws_apigatewayv2_route" "webhook_stripe" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/webhooks/stripe"
-  target    = "integrations/${aws_apigatewayv2_integration.webhooks.id}"
-}
-resource "aws_apigatewayv2_route" "webhook_easypost" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /api/webhooks/easypost"
-  target    = "integrations/${aws_apigatewayv2_integration.webhooks.id}"
-}
-
-# ── Lambda Permissions ───────────────────────────────────────────────────────
-resource "aws_lambda_permission" "apigw_auth" {
+resource "aws_lambda_permission" "apigw" {
+  for_each      = local.api_lambda_name
+  statement_id  = "AllowAPIGatewayInvoke-${each.key}"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.auth.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}
-resource "aws_lambda_permission" "apigw_products" {
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.products.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}
-resource "aws_lambda_permission" "apigw_orders" {
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.orders.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}
-resource "aws_lambda_permission" "apigw_seller" {
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.seller.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}
-resource "aws_lambda_permission" "apigw_webhooks" {
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.webhooks.function_name
+  function_name = each.value
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
@@ -233,10 +201,10 @@ output "acm_cert_validation_records" {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 resource "aws_acm_certificate" "platform" {
-  count             = var.domain_name != "" ? 1 : 0
-  domain_name       = var.domain_name
+  count                     = var.domain_name != "" ? 1 : 0
+  domain_name               = var.domain_name
   subject_alternative_names = ["www.${var.domain_name}"]
-  validation_method = "DNS"
+  validation_method         = "DNS"
 
   lifecycle { create_before_destroy = true }
   tags = { Name = "${var.name_prefix}-platform-ssl" }
@@ -286,6 +254,7 @@ resource "aws_apigatewayv2_route" "spa_fallback" {
 }
 
 resource "aws_lambda_permission" "apigw_static_serve" {
+  statement_id  = "AllowAPIGatewayInvoke-static-serve"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.static_serve.function_name
   principal     = "apigateway.amazonaws.com"

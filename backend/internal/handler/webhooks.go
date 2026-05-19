@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,6 +24,11 @@ type WebhookHandler struct {
 	store                 *dbpkg.Store
 	stripe                *payments.Client
 	easypostWebhookSecret string
+
+	// OnDelivered, bir kargo "delivered" durumuna geçince çağrılır. Lambda
+	// ortamında lambdart bunu finance SQS kuyruğuna mesaj atacak şekilde
+	// ayarlar; lokal/Docker'da nil bırakılır.
+	OnDelivered func(ctx context.Context, trackerID, trackingCode string)
 }
 
 func NewWebhookHandler(store *dbpkg.Store, stripeClient *payments.Client, easypostSecret string) *WebhookHandler {
@@ -84,18 +90,11 @@ func (h *WebhookHandler) EasyPost(w http.ResponseWriter, r *http.Request) {
 		log.Printf("KARGO TESLİM EDİLDİ: tracker=%s → SQS Finance kuyruğuna gönderiliyor",
 			payload.Result.ID)
 
-		// TODO (prod): SQS Finance kuyruğuna mesaj gönder
-		// msg := SQSFinanceMessage{
-		//     EventType:    "easypost.delivered",
-		//     TrackerID:    payload.Result.ID,
-		//     TrackingCode: payload.Result.TrackingCode,
-		//     Timestamp:    time.Now(),
-		// }
-		// sqsClient.SendMessage(ctx, &sqs.SendMessageInput{
-		//     QueueUrl:    &h.sqsFinanceURL,
-		//     MessageBody: aws.String(marshal(msg)),
-		//     MessageGroupId: aws.String(payload.Result.ID), // FIFO için
-		// })
+		// Lambda ortamında: finance kuyruğuna mesaj at → finance-worker Lambda
+		// teslimatı işler (escrow release). Lokal/Docker'da OnDelivered nil.
+		if h.OnDelivered != nil {
+			h.OnDelivered(r.Context(), payload.Result.ID, payload.Result.TrackingCode)
+		}
 	}
 
 	// EasyPost'a hemen 200 OK dön — 5sn timeout'u aşma!

@@ -52,19 +52,84 @@ resource "aws_internet_gateway" "main" {
   tags   = { Name = "${var.name_prefix}-igw" }
 }
 
-# ─── Elastic IP (NAT Gateway için) ──────────────────────────────────────────
-resource "aws_eip" "nat" {
-  domain = "vpc"
-  tags   = { Name = "${var.name_prefix}-nat-eip" }
+# ═══════════════════════════════════════════════════════════════════════════════
+# NAT — Test ortamı için NAT Instance (NAT Gateway yerine, maliyet ~$26 → ~$2)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# NAT Gateway saatlik ~$0.052 tüketir. 20 günlük test için bunun yerine küçük bir
+# t4g.nano EC2 NAT instance kullanılıyor. Prod'a geçişte aşağıdaki "PROD" bloğu
+# geri açılıp NAT instance kaldırılmalıdır.
+#
+# ── PROD NAT Gateway (YORUM SATIRINDA — prod'da geri açılacak) ───────────────
+# resource "aws_eip" "nat" {
+#   domain = "vpc"
+#   tags   = { Name = "${var.name_prefix}-nat-eip" }
+# }
+# resource "aws_nat_gateway" "main" {
+#   allocation_id = aws_eip.nat.id
+#   subnet_id     = aws_subnet.public[0].id
+#   tags          = { Name = "${var.name_prefix}-nat" }
+#   depends_on    = [aws_internet_gateway.main]
+# }
+
+# ── NAT Instance (test) ──────────────────────────────────────────────────────
+data "aws_ami" "al2023_arm" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-arm64"]
+  }
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
 }
 
-# ─── NAT Gateway ─────────────────────────────────────────────────────────────
-# Lambda → internet çıkışı (Stripe, EasyPost, Claude API çağrıları)
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+resource "aws_security_group" "nat" {
+  name_prefix = "${var.name_prefix}-nat-"
+  vpc_id      = aws_vpc.main.id
+  description = "NAT instance routing VPC traffic to internet"
 
-  tags = { Name = "${var.name_prefix}-nat" }
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+    description = "VPC ici tum trafik"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "${var.name_prefix}-nat-sg" }
+}
+
+resource "aws_instance" "nat" {
+  ami                         = data.aws_ami.al2023_arm.id
+  instance_type               = "t4g.micro" # free-tier uygun (t4g.nano değil)
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.nat.id]
+  associate_public_ip_address = true
+  source_dest_check           = false # NAT için zorunlu
+
+  user_data = <<-EOF
+    #!/bin/bash
+    set -e
+    sysctl -w net.ipv4.ip_forward=1
+    echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-nat.conf
+    IFACE=$(ip -o -4 route show to default | awk '{print $5}')
+    iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+    iptables -A FORWARD -j ACCEPT
+  EOF
+
+  tags = { Name = "${var.name_prefix}-nat-instance" }
+
   depends_on = [aws_internet_gateway.main]
 }
 
@@ -87,12 +152,14 @@ resource "aws_route_table_association" "public" {
 }
 
 # ─── Route Table: Private ────────────────────────────────────────────────────
+# Private subnet'lerin internet çıkışı NAT instance üzerinden.
+# (PROD'da: nat_gateway_id = aws_nat_gateway.main.id)
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+    cidr_block           = "0.0.0.0/0"
+    network_interface_id = aws_instance.nat.primary_network_interface_id
   }
 
   tags = { Name = "${var.name_prefix}-private-rt" }

@@ -22,6 +22,16 @@ output "domain_router_url" {
   value       = module.compute.domain_router_function_url
 }
 
+output "ai_site_builder_url" {
+  description = "AI Site Builder Lambda Function URL (ham)"
+  value       = module.ai.site_builder_function_url
+}
+
+output "ai_solver_url" {
+  description = "AI Solver Lambda Function URL (ham)"
+  value       = module.ai.ai_solver_function_url
+}
+
 output "rds_endpoint" {
   description = "RDS PostgreSQL endpoint"
   value       = module.data.rds_endpoint

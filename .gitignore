@@ -2,6 +2,7 @@
 .DS_Store
 Thumbs.db
 *.log
+*.err
 
 # ─── IDEs & Editörler ─────────────────────────────────────────────────────────
 .vscode/
@@ -87,6 +88,8 @@ override.tf.json
 # Terraform secret variables — ASLA commit etme!
 terraform.tfvars
 *.auto.tfvars
+*.tfvars.json
+*.auto.tfvars.json
 
 # Kaydedilmiş plan dosyaları — state gibi sırları DÜZ METİN içerir, ASLA commit etme!
 tfplan
@@ -109,3 +112,7 @@ docker-compose.yml
 stitch_minimalist/
 
 .terraform.lock.hcl
+
+# Lambda zip files
+bootstrap
+*.zip

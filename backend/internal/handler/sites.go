@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -16,6 +17,11 @@ type SiteHandler struct {
 	store    *db.Store
 	validate *validator.Validate
 	gemini   *ai.GeminiClient // nil olabilir — varsa publish'te ürün embedding'i üretilir
+
+	// OnPublish, bir site başarıyla publish edilince çağrılır. Lambda ortamında
+	// lambdart bunu publish SQS kuyruğuna mesaj atacak şekilde ayarlar; lokal/
+	// Docker'da nil bırakılır (HTML canlı serve edilir, S3'e yazılmaz).
+	OnPublish func(ctx context.Context, site *db.Site)
 }
 
 func NewSiteHandler(store *db.Store, gemini *ai.GeminiClient) *SiteHandler {
@@ -140,6 +146,12 @@ func (h *SiteHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Marketplace sync hatası (site=%s): %v", site.ID, syncErr)
 	} else {
 		log.Printf("Marketplace sync: site=%s ürün=%d", site.ID, count)
+	}
+
+	// Lambda ortamında: publish kuyruğuna mesaj at → publisher Lambda HTML'i
+	// render edip S3'e yükler. Lokal/Docker'da OnPublish nil → atlanır.
+	if h.OnPublish != nil {
+		h.OnPublish(r.Context(), site)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{

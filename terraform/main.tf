@@ -64,6 +64,9 @@ provider "cloudflare" {
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
+  # backend/build_lambdas.ps1 çıktısı — her Lambda'nın <name>/<name>.zip yolu.
+  lambda_artifacts_dir = abspath("${path.root}/../backend/build/lambda")
+
   common_tags = merge(var.tags, {
     Project     = var.project_name
     Environment = var.environment
@@ -115,6 +118,7 @@ resource "cloudflare_zone_settings_override" "main" {
     min_tls_version   = "1.2"
     browser_cache_ttl = 14400 # 4 saat
     security_level    = "medium"
+    browser_check     = "on" # Browser Integrity Check — temel bot/zararlı filtresi
   }
 }
 
@@ -165,8 +169,9 @@ module "compute" {
   private_subnet_ids = module.networking.private_subnet_ids
   domain_name        = var.domain_name
 
-  # Lambda ortam değişkenleri
-  lambda_env_common = local.lambda_env_common
+  # Lambda derleme çıktıları + ortam değişkenleri
+  lambda_artifacts_dir = local.lambda_artifacts_dir
+  lambda_env_common    = local.lambda_env_common
 
   # Stripe & EasyPost
   stripe_secret_key        = var.stripe_secret_key
@@ -207,10 +212,11 @@ module "ai" {
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
 
-  lambda_env_common   = local.lambda_env_common
-  gemini_api_key      = var.gemini_api_key
-  gemini_model        = var.gemini_model
-  ses_sender_email    = var.ses_sender_email
+  lambda_artifacts_dir = local.lambda_artifacts_dir
+  lambda_env_common    = local.lambda_env_common
+  gemini_api_key       = var.gemini_api_key
+  gemini_model         = var.gemini_model
+  ses_sender_email     = var.ses_sender_email
 
   dynamodb_table_arn  = module.data.dynamodb_table_arn
   dynamodb_table_name = module.data.dynamodb_table_name
@@ -242,6 +248,10 @@ module "edge" {
 
   # Lambda Function URL domain (wildcard subdomain'ler için)
   domain_router_url_domain = module.compute.domain_router_url_domain
+
+  # AI Lambda Function URL domain'leri (ai-builder / ai-solver subdomain'leri)
+  ai_site_builder_url_domain = module.ai.site_builder_url_domain
+  ai_solver_url_domain       = module.ai.ai_solver_url_domain
 
   # ACM sertifika DNS doğrulaması Cloudflare üzerinden
   acm_cert_validation_records = module.compute.acm_cert_validation_records

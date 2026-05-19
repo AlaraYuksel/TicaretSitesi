@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,9 +18,21 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("db config parse hatası: %w", err)
 	}
 
-	// Pool ayarları
+	// Pool ayarları.
+	// Docker'da tek süreç çalışır → geniş pool (20) uygundur.
+	// Lambda'da ise her eşzamanlı çağrı kendi pool'unu açar; RDS max_connections
+	// (~100) hızla dolabilir. Bu yüzden Lambda entrypoint'leri DB_MAX_CONNS=4 gibi
+	// düşük bir değer geçer (lambdart.Load bunu set eder).
 	cfg.MaxConns = 20
 	cfg.MinConns = 2
+	if v := os.Getenv("DB_MAX_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.MaxConns = int32(n)
+			if cfg.MinConns > cfg.MaxConns {
+				cfg.MinConns = cfg.MaxConns
+			}
+		}
+	}
 	cfg.MaxConnLifetime = 1 * time.Hour
 	cfg.MaxConnIdleTime = 30 * time.Minute
 	cfg.HealthCheckPeriod = 1 * time.Minute

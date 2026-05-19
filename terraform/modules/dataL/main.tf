@@ -29,14 +29,14 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_security_group" "rds" {
   name_prefix = "${var.name_prefix}-rds-"
   vpc_id      = var.vpc_id
-  description = "RDS PostgreSQL — sadece Lambda SG'den erişim"
+  description = "RDS PostgreSQL access from Lambda SG only"
 
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [var.lambda_sg_id]
-    description     = "Lambda -> RDS"
+    description     = "Lambda to RDS"
   }
 
   egress {
@@ -52,18 +52,20 @@ resource "aws_security_group" "rds" {
 resource "aws_db_parameter_group" "postgres16" {
   name_prefix = "${var.name_prefix}-pg16-"
   family      = "postgres16"
-  description = "PostgreSQL 16 — pgvector + performans ayarları"
+  description = "PostgreSQL 16 pgvector and performance settings"
 
-  # pgvector eklentisini paylaşılan kütüphanelere ekle
+  # Statik parametreler — değişiklik için RDS yeniden başlatması gerekir,
+  # bu yüzden apply_method = "pending-reboot" zorunlu (immediate hata verir).
   parameter {
-    name  = "shared_preload_libraries"
-    value = "pg_stat_statements"
+    name         = "shared_preload_libraries"
+    value        = "pg_stat_statements"
+    apply_method = "pending-reboot"
   }
 
-  # Bağlantı havuzu optimizasyonu
   parameter {
-    name  = "max_connections"
-    value = "100"
+    name         = "max_connections"
+    value        = "100"
+    apply_method = "pending-reboot"
   }
 
   tags = { Name = "${var.name_prefix}-pg-params" }
@@ -72,8 +74,10 @@ resource "aws_db_parameter_group" "postgres16" {
 resource "aws_db_instance" "main" {
   identifier = "${var.name_prefix}-postgres"
 
-  engine         = "postgres"
-  engine_version = "16.4"
+  engine = "postgres"
+  # Sadece major sürüm — AWS en güncel 16.x minor'ı seçer (16.4 gibi belirli
+  # minor'lar zamanla kaldırılıyor, bu yüzden major belirtmek daha sağlam).
+  engine_version = "16"
   instance_class = var.db_instance_class
 
   db_name  = var.db_name
@@ -94,7 +98,7 @@ resource "aws_db_instance" "main" {
   skip_final_snapshot = true
   deletion_protection = false  # MVP — prod'da true
 
-  backup_retention_period = 7
+  backup_retention_period = 1 # test ortamı — maliyet için kısa (prod'da 7+)
   backup_window           = "03:00-04:00"
   maintenance_window      = "Sun:04:00-Sun:05:00"
 
@@ -157,9 +161,11 @@ resource "aws_dynamodb_table" "main" {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── S3: React/Vite Build ─────────────────────────────────────────────────────
+# force_destroy=true: terraform destroy dolu bucket'ı da siler (test ortamı).
 resource "aws_s3_bucket" "react" {
-  bucket = "${var.name_prefix}-react-app"
-  tags   = { Name = "${var.name_prefix}-react" }
+  bucket        = "${var.name_prefix}-react-app"
+  force_destroy = true
+  tags          = { Name = "${var.name_prefix}-react" }
 }
 
 resource "aws_s3_bucket_versioning" "react" {
@@ -177,8 +183,9 @@ resource "aws_s3_bucket_public_access_block" "react" {
 
 # ── S3: User Assets (ürün görselleri, medya) ─────────────────────────────────
 resource "aws_s3_bucket" "assets" {
-  bucket = "${var.name_prefix}-user-assets"
-  tags   = { Name = "${var.name_prefix}-assets" }
+  bucket        = "${var.name_prefix}-user-assets"
+  force_destroy = true
+  tags          = { Name = "${var.name_prefix}-assets" }
 }
 
 resource "aws_s3_bucket_versioning" "assets" {
@@ -207,8 +214,9 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
 
 # ── S3: Published Sites (yayınlanan satıcı siteleri) ────────────────────────
 resource "aws_s3_bucket" "published" {
-  bucket = "${var.name_prefix}-published-sites"
-  tags   = { Name = "${var.name_prefix}-published" }
+  bucket        = "${var.name_prefix}-published-sites"
+  force_destroy = true
+  tags          = { Name = "${var.name_prefix}-published" }
 }
 
 resource "aws_s3_bucket_versioning" "published" {
