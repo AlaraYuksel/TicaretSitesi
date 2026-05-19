@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="900" viewBox="0 0 1180 900" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowDash" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#a855f7"/>
+    </marker>
+    <style>
+      .lane    { fill:#f8fafc; stroke:#e2e8f0; stroke-width:1.5; rx:14; }
+      .laneLbl { fill:#94a3b8; font-size:13px; font-weight:700; letter-spacing:1px; }
+      .box     { rx:10; stroke-width:1.5; }
+      .title   { font-size:13px; font-weight:700; }
+      .sub     { font-size:10.5px; }
+      .edge    { stroke:#64748b; stroke-width:1.6; fill:none; }
+      .edgeA   { stroke:#a855f7; stroke-width:1.8; fill:none; stroke-dasharray:6 4; }
+      .edgeLbl { fill:#475569; font-size:10px; font-weight:600; }
+    </style>
+  </defs>
+
+  <rect width="1180" height="900" fill="#ffffff"/>
+  <text x="40" y="44" font-size="24" font-weight="800" fill="#0f172a">TicaretSitesi — Sistem Mimarisi</text>
+  <text x="40" y="66" font-size="13" fill="#64748b">AI destekli site oluşturucu + pazaryeri platformu · React SPA · Go Lambda mikroservisleri · AWS</text>
+
+  <!-- ============ LANE 1: CLIENT / EDGE ============ -->
+  <rect class="lane" x="40" y="90" width="1100" height="100"/>
+  <text class="laneLbl" x="58" y="112">İSTEMCİ &amp; EDGE</text>
+
+  <rect class="box" x="80" y="120" width="200" height="56" fill="#eff6ff" stroke="#3b82f6"/>
+  <text class="title" x="180" y="143" text-anchor="middle" fill="#1e3a8a">Tarayıcı / Kullanıcı</text>
+  <text class="sub" x="180" y="160" text-anchor="middle" fill="#3b82f6">Site sahibi · Alıcı · Satıcı</text>
+
+  <rect class="box" x="470" y="120" width="240" height="56" fill="#fff7ed" stroke="#f97316"/>
+  <text class="title" x="590" y="143" text-anchor="middle" fill="#9a3412">Cloudflare CDN / WAF</text>
+  <text class="sub" x="590" y="160" text-anchor="middle" fill="#f97316">DNS · SSL · DDoS · *.iluvcode.art</text>
+
+  <rect class="box" x="900" y="120" width="200" height="56" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="title" x="1000" y="143" text-anchor="middle" fill="#166534">Yayınlanan Siteler</text>
+  <text class="sub" x="1000" y="160" text-anchor="middle" fill="#22c55e">Statik HTML (S3 üzerinden)</text>
+
+  <!-- ============ LANE 2: FRONTEND ============ -->
+  <rect class="lane" x="40" y="210" width="1100" height="110"/>
+  <text class="laneLbl" x="58" y="232">FRONTEND (SPA)</text>
+
+  <rect class="box" x="80" y="244" width="1020" height="62" fill="#eef2ff" stroke="#6366f1"/>
+  <text class="title" x="590" y="266" text-anchor="middle" fill="#3730a3">React 19 + Vite + React Router v7 + Tailwind + Zustand</text>
+  <text class="sub" x="590" y="285" text-anchor="middle" fill="#6366f1">Dashboard · Site Editörü (Canvas/Inspector/Layers/AI Builder) · Pazaryeri · Sepet/Checkout · Satıcı Paneli · Sipariş Takibi</text>
+  <text class="sub" x="590" y="299" text-anchor="middle" fill="#94a3b8">Stores: useAuthStore · useCartStore · useEditorStore</text>
+
+  <!-- ============ LANE 3: API GATEWAY + HTTP LAMBDAS ============ -->
+  <rect class="lane" x="40" y="340" width="1100" height="190"/>
+  <text class="laneLbl" x="58" y="362">API GATEWAY &amp; HTTP LAMBDA SERVİSLERİ (Go · ARM64)</text>
+
+  <rect class="box" x="80" y="372" width="160" height="142" fill="#fef9c3" stroke="#eab308"/>
+  <text class="title" x="160" y="430" text-anchor="middle" fill="#854d0e">API Gateway</text>
+  <text class="sub" x="160" y="448" text-anchor="middle" fill="#a16207">HTTP API</text>
+  <text class="sub" x="160" y="462" text-anchor="middle" fill="#a16207">JWT yetkilendirme</text>
+
+  <!-- lambda grid -->
+  <g>
+    <rect class="box" x="270" y="372" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="332" y="396" text-anchor="middle" font-weight="700" fill="#155e75">auth</text>
+    <rect class="box" x="406" y="372" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="468" y="396" text-anchor="middle" font-weight="700" fill="#155e75">sites</text>
+    <rect class="box" x="542" y="372" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="604" y="396" text-anchor="middle" font-weight="700" fill="#155e75">products</text>
+    <rect class="box" x="678" y="372" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="740" y="396" text-anchor="middle" font-weight="700" fill="#155e75">orders</text>
+    <rect class="box" x="814" y="372" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="876" y="396" text-anchor="middle" font-weight="700" fill="#155e75">marketplace</text>
+    <rect class="box" x="950" y="372" width="138" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="1019" y="396" text-anchor="middle" font-weight="700" fill="#155e75">seller / buyer</text>
+
+    <rect class="box" x="270" y="420" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="332" y="444" text-anchor="middle" font-weight="700" fill="#155e75">questions</text>
+    <rect class="box" x="406" y="420" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="468" y="444" text-anchor="middle" font-weight="700" fill="#155e75">webhooks</text>
+    <rect class="box" x="542" y="420" width="124" height="40" fill="#f5f3ff" stroke="#a855f7"/>
+    <text class="sub" x="604" y="444" text-anchor="middle" font-weight="700" fill="#6b21a8">ai-api</text>
+    <rect class="box" x="678" y="420" width="124" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="740" y="444" text-anchor="middle" font-weight="700" fill="#155e75">domain-router</text>
+    <rect class="box" x="814" y="420" width="274" height="40" fill="#ecfeff" stroke="#06b6d4"/>
+    <text class="sub" x="951" y="444" text-anchor="middle" font-weight="700" fill="#155e75">migrate · static-serve</text>
+  </g>
+  <text class="sub" x="679" y="496" text-anchor="middle" fill="#94a3b8">Her Lambda lambdart.MustLoad() ile paylaşılan bağımlılıkları (DB, Stripe, Gemini) cold-start optimizasyonuyla yükler.
+  Yerel geliştirmede aynı handler'lar backend/main.go monolitik HTTP sunucusunda çalışır (:8080).</text>
+
+  <!-- ============ LANE 4: ASYNC / QUEUES + WORKERS ============ -->
+  <rect class="lane" x="40" y="550" width="745" height="180"/>
+  <text class="laneLbl" x="58" y="572">ASENKRON İŞLEME (SQS + Worker Lambda)</text>
+
+  <rect class="box" x="80" y="586" width="150" height="44" fill="#fce7f3" stroke="#ec4899"/>
+  <text class="sub" x="155" y="606" text-anchor="middle" font-weight="700" fill="#9d174d">SQS: ai-jobs</text>
+  <text class="sub" x="155" y="620" text-anchor="middle" fill="#ec4899">AI iş kuyruğu</text>
+
+  <rect class="box" x="80" y="640" width="150" height="44" fill="#fce7f3" stroke="#ec4899"/>
+  <text class="sub" x="155" y="660" text-anchor="middle" font-weight="700" fill="#9d174d">SQS: publish</text>
+  <text class="sub" x="155" y="674" text-anchor="middle" fill="#ec4899">Yayınlama kuyruğu</text>
+
+  <rect class="box" x="80" y="694" width="150" height="30" fill="#fce7f3" stroke="#ec4899"/>
+  <text class="sub" x="155" y="713" text-anchor="middle" font-weight="700" fill="#9d174d">SQS: finance</text>
+
+  <rect class="box" x="320" y="586" width="200" height="44" fill="#f5f3ff" stroke="#a855f7"/>
+  <text class="sub" x="420" y="606" text-anchor="middle" font-weight="700" fill="#6b21a8">ai-worker</text>
+  <text class="sub" x="420" y="620" text-anchor="middle" fill="#a855f7">AI işlerini yürütür · olay akışı</text>
+
+  <rect class="box" x="320" y="640" width="200" height="44" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="sub" x="420" y="660" text-anchor="middle" font-weight="700" fill="#166534">publisher</text>
+  <text class="sub" x="420" y="674" text-anchor="middle" fill="#22c55e">Site HTML render → S3</text>
+
+  <rect class="box" x="320" y="694" width="200" height="30" fill="#fef2f2" stroke="#ef4444"/>
+  <text class="sub" x="420" y="713" text-anchor="middle" font-weight="700" fill="#991b1b">finance-worker · escrow serbest bırakma</text>
+
+  <rect class="box" x="560" y="586" width="200" height="138" fill="#eff6ff" stroke="#3b82f6"/>
+  <text class="title" x="660" y="640" text-anchor="middle" fill="#1e3a8a">İş Tablosu</text>
+  <text class="sub" x="660" y="660" text-anchor="middle" fill="#3b82f6">ai_jobs (pending/</text>
+  <text class="sub" x="660" y="674" text-anchor="middle" fill="#3b82f6">running/done/error)</text>
+  <text class="sub" x="660" y="692" text-anchor="middle" fill="#94a3b8">frontend job_id ile</text>
+  <text class="sub" x="660" y="705" text-anchor="middle" fill="#94a3b8">polling yapar</text>
+
+  <!-- ============ LANE 5: DATA + EXTERNAL ============ -->
+  <rect class="lane" x="805" y="550" width="335" height="180"/>
+  <text class="laneLbl" x="823" y="572">VERİ &amp; DIŞ SERVİSLER</text>
+
+  <rect class="box" x="825" y="586" width="295" height="44" fill="#eff6ff" stroke="#3b82f6"/>
+  <text class="sub" x="972" y="606" text-anchor="middle" font-weight="700" fill="#1e3a8a">RDS PostgreSQL 16 + pgvector</text>
+  <text class="sub" x="972" y="620" text-anchor="middle" fill="#3b82f6">users · sites · pages · orders · ai_jobs</text>
+
+  <rect class="box" x="825" y="640" width="142" height="44" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="sub" x="896" y="660" text-anchor="middle" font-weight="700" fill="#166534">S3 assets</text>
+  <text class="sub" x="896" y="674" text-anchor="middle" fill="#22c55e">medya</text>
+
+  <rect class="box" x="978" y="640" width="142" height="44" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="sub" x="1049" y="660" text-anchor="middle" font-weight="700" fill="#166534">S3 published</text>
+  <text class="sub" x="1049" y="674" text-anchor="middle" fill="#22c55e">yayınlanan HTML</text>
+
+  <rect class="box" x="825" y="694" width="93" height="30" fill="#f5f3ff" stroke="#a855f7"/>
+  <text class="sub" x="871" y="713" text-anchor="middle" font-weight="700" fill="#6b21a8">Gemini AI</text>
+
+  <rect class="box" x="926" y="694" width="93" height="30" fill="#fef9c3" stroke="#eab308"/>
+  <text class="sub" x="972" y="713" text-anchor="middle" font-weight="700" fill="#854d0e">Stripe</text>
+
+  <rect class="box" x="1027" y="694" width="93" height="30" fill="#fff7ed" stroke="#f97316"/>
+  <text class="sub" x="1073" y="713" text-anchor="middle" font-weight="700" fill="#9a3412">EasyPost</text>
+
+  <!-- ============ EDGES ============ -->
+  <!-- browser -> cloudflare -->
+  <path class="edge" d="M280,148 L468,148" marker-end="url(#arrow)"/>
+  <!-- cloudflare -> frontend -->
+  <path class="edge" d="M590,176 L590,242" marker-end="url(#arrow)"/>
+  <!-- cloudflare -> published sites -->
+  <path class="edge" d="M710,148 L898,148" marker-end="url(#arrow)"/>
+  <!-- frontend -> api gateway -->
+  <path class="edge" d="M300,306 C260,330 200,340 160,370" marker-end="url(#arrow)"/>
+  <text class="edgeLbl" x="170" y="334">REST / JWT</text>
+  <!-- api gateway -> lambdas -->
+  <path class="edge" d="M240,416 L268,416" marker-end="url(#arrow)"/>
+  <!-- lambdas -> postgres -->
+  <path class="edge" d="M1019,460 C1040,510 1010,540 990,584" marker-end="url(#arrow)"/>
+  <!-- ai-api -> ai-jobs queue -->
+  <path class="edgeA" d="M560,448 C400,480 240,520 200,584" marker-end="url(#arrowDash)"/>
+  <text class="edgeLbl" x="300" y="520" fill="#a855f7">SQS mesajı gönderir</text>
+  <!-- sites -> publish queue (publish) -->
+  <path class="edge" d="M468,412 C420,470 300,500 200,638" marker-end="url(#arrow)"/>
+  <!-- queues -> workers -->
+  <path class="edgeA" d="M230,608 L318,608" marker-end="url(#arrowDash)"/>
+  <path class="edge" d="M230,662 L318,662" marker-end="url(#arrow)"/>
+  <path class="edge" d="M230,709 L318,709" marker-end="url(#arrow)"/>
+  <!-- ai-worker -> job table -->
+  <path class="edgeA" d="M520,608 L558,608" marker-end="url(#arrowDash)"/>
+  <!-- ai-worker -> gemini -->
+  <path class="edgeA" d="M520,600 C620,560 760,640 824,700" marker-end="url(#arrowDash)"/>
+  <!-- publisher -> s3 published -->
+  <path class="edge" d="M520,662 C700,640 950,650 1010,684" marker-end="url(#arrow)"/>
+  <!-- finance-worker -> stripe -->
+  <path class="edge" d="M520,709 C700,740 880,730 950,716" marker-end="url(#arrow)"/>
+  <!-- webhooks -> stripe/easypost (return) -->
+  <path class="edge" d="M468,460 C500,520 850,560 990,692" marker-end="url(#arrow)"/>
+  <text class="edgeLbl" x="640" y="540">webhook (Stripe / EasyPost)</text>
+  <!-- domain-router -> s3 published / published sites -->
+  <path class="edge" d="M802,440 C1000,470 1070,540 1075,684" marker-end="url(#arrow)"/>
+
+  <!-- legend -->
+  <rect x="40" y="752" width="1100" height="120" fill="#f8fafc" stroke="#e2e8f0" rx="12"/>
+  <text x="60" y="778" font-size="13" font-weight="700" fill="#475569">Akışlar</text>
+  <line x1="60" y1="800" x2="100" y2="800" class="edge"/>
+  <text x="110" y="804" font-size="11" fill="#475569">Senkron istek / yanıt (HTTP, DB sorgusu, S3 okuma-yazma)</text>
+  <line x1="60" y1="824" x2="100" y2="824" class="edgeA"/>
+  <text x="110" y="828" font-size="11" fill="#475569">Asenkron AI iş akışı (SQS kuyruğu üzerinden, olay tabanlı)</text>
+  <text x="60" y="855" font-size="11" fill="#94a3b8">AI iş akışı: Frontend ai-api'ye istek atar → ai_jobs kaydı + SQS mesajı oluşur → ai-worker Gemini ile işler →
+  ai_jobs olay dizisini günceller → Frontend job_id ile polling yaparak ilerlemeyi gösterir.</text>
+</svg>
