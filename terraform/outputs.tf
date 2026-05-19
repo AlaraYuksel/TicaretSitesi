@@ -17,19 +17,9 @@ output "api_gateway_url" {
   value       = module.compute.api_gateway_invoke_url
 }
 
-output "domain_router_url" {
-  description = "Published Sites Lambda Function URL"
-  value       = module.compute.domain_router_function_url
-}
-
-output "ai_site_builder_url" {
-  description = "AI Site Builder Lambda Function URL (ham)"
-  value       = module.ai.site_builder_function_url
-}
-
-output "ai_solver_url" {
-  description = "AI Solver Lambda Function URL (ham)"
-  value       = module.ai.ai_solver_function_url
+output "wildcard_api_domain_target" {
+  description = "Wildcard API Gateway hedefi (*.iluvcode.art → domain-router)"
+  value       = module.compute.wildcard_api_domain_target
 }
 
 output "rds_endpoint" {

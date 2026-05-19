@@ -287,28 +287,8 @@ resource "aws_lambda_function" "domain_router" {
   }
 }
 
-# Lambda Function URL — CloudFront yerine doğrudan erişim noktası
-resource "aws_lambda_function_url" "domain_router" {
-  function_name      = aws_lambda_function.domain_router.function_name
-  authorization_type = "NONE"
-
-  cors {
-    allow_origins = ["*"]
-    allow_methods = ["GET", "HEAD"]
-    max_age       = 3600
-  }
-}
-
-# authorization_type=NONE tek başına yetmez — Function URL'in herkese açık
-# çağrılabilmesi için lambda:InvokeFunctionUrl izni de gerekir (Console bunu
-# otomatik ekler, terraform'da elle eklenmeli). Yoksa 403 Forbidden döner.
-resource "aws_lambda_permission" "domain_router_url" {
-  statement_id           = "AllowPublicFunctionUrl"
-  action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.domain_router.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
-}
+# domain-router artık wildcard API Gateway arkasında (bkz. wildcard.tf).
+# Function URL kaldırıldı — sandbox hesabı public Function URL'leri engelliyor.
 
 # ── Static Serve λ ──────────────────────────────────────────────────────────
 # iluvcode.art isteklerini karşılar — React SPA dosyalarını S3'ten serve eder.

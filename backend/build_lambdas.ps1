@@ -18,7 +18,7 @@ $BuildDir = Join-Path (Join-Path $PSScriptRoot "build") "lambda"
 # Terraform'un beklediği tüm Lambda fonksiyonları (cmd/<name> dizinleri)
 $Lambdas = @(
     "auth", "sites", "products", "orders", "seller", "buyer", "webhooks",
-    "ai-site-builder", "ai-solver",
+    "ai-api", "ai-worker",
     "publisher", "finance-worker",
     "migrate",
     "domain-router", "static-serve"

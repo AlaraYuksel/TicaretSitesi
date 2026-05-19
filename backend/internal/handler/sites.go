@@ -18,10 +18,11 @@ type SiteHandler struct {
 	validate *validator.Validate
 	gemini   *ai.GeminiClient // nil olabilir — varsa publish'te ürün embedding'i üretilir
 
-	// OnPublish, bir site başarıyla publish edilince çağrılır. Lambda ortamında
-	// lambdart bunu publish SQS kuyruğuna mesaj atacak şekilde ayarlar; lokal/
-	// Docker'da nil bırakılır (HTML canlı serve edilir, S3'e yazılmaz).
-	OnPublish func(ctx context.Context, site *db.Site)
+	// OnPublish, bir site başarıyla publish edilince çağrılır. html, frontend'in
+	// ürettiği TAM statik HTML'dir (editör önizlemesiyle birebir). Lambda
+	// ortamında lambdart bunu S3'e {subdomain}/index.html olarak yazacak şekilde
+	// ayarlar; lokal/Docker'da nil bırakılır.
+	OnPublish func(ctx context.Context, site *db.Site, html string)
 }
 
 func NewSiteHandler(store *db.Store, gemini *ai.GeminiClient) *SiteHandler {
@@ -126,9 +127,18 @@ func (h *SiteHandler) SaveData(w http.ResponseWriter, r *http.Request) {
 
 // ─── POST /api/sites/{id}/publish ────────────────────────────────────────────
 
+type publishRequest struct {
+	HTML string `json:"html"`
+}
+
 func (h *SiteHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	id := pathValue(r, "id")
 	userID := middleware.UserIDFromCtx(r.Context())
+
+	// Frontend, editör önizlemesiyle birebir tam HTML'i gövdede gönderir.
+	// Gövde boş olabilir (eski istemci / API) — o durumda html "" kalır.
+	var pubReq publishRequest
+	_ = json.NewDecoder(r.Body).Decode(&pubReq)
 
 	site, err := h.store.PublishSite(r.Context(), id, userID)
 	if err != nil {
@@ -148,10 +158,10 @@ func (h *SiteHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Marketplace sync: site=%s ürün=%d", site.ID, count)
 	}
 
-	// Lambda ortamında: publish kuyruğuna mesaj at → publisher Lambda HTML'i
-	// render edip S3'e yükler. Lokal/Docker'da OnPublish nil → atlanır.
+	// Lambda ortamında: frontend'in gönderdiği HTML'i S3'e yaz
+	// ({subdomain}/index.html). Lokal/Docker'da OnPublish nil → atlanır.
 	if h.OnPublish != nil {
-		h.OnPublish(r.Context(), site)
+		h.OnPublish(r.Context(), site, pubReq.HTML)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{

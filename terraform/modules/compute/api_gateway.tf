@@ -172,34 +172,35 @@ output "api_gateway_id"            { value = aws_apigatewayv2_api.main.id }
 output "api_gateway_execution_arn" { value = aws_apigatewayv2_api.main.execution_arn }
 output "api_gateway_invoke_url"    { value = aws_apigatewayv2_stage.default.invoke_url }
 
-# Domain Router Lambda Function URL
-output "domain_router_function_url" {
-  value = aws_lambda_function_url.domain_router.function_url
-}
-
-# Domain Router URL domain (Cloudflare CNAME için)
-output "domain_router_url_domain" {
-  value = replace(replace(aws_lambda_function_url.domain_router.function_url, "https://", ""), "/", "")
-}
-
 # API Gateway Custom Domain hedefi
 output "api_gw_custom_domain_target" {
   value = length(aws_apigatewayv2_domain_name.platform) > 0 ? aws_apigatewayv2_domain_name.platform[0].domain_name_configuration[0].target_domain_name : ""
 }
 
-# ACM doğrulama kayıtları (Cloudflare'e eklenecek)
+# ACM doğrulama kayıtları (Cloudflare'e eklenecek).
+# Yalnızca PLATFORM sertifikasının doğrulama kayıtları (iluvcode.art + www = 2).
+# Wildcard sertifikası ayrıca kayıt GEREKTİRMEZ: ACM, iluvcode.art ve
+# *.iluvcode.art için AYNI doğrulama CNAME'ini kullanır — platform
+# sertifikasının iluvcode.art kaydı wildcard sertifikasını da doğrular.
+# 2 kayıt birbirinden farklı → dedup yok, sayı (2) plan-zamanı belli.
 output "acm_cert_validation_records" {
-  value = var.domain_name != "" ? [for dvo in aws_acm_certificate.platform[0].domain_validation_options : {
-    name   = dvo.resource_record_name
-    record = dvo.resource_record_value
-    type   = dvo.resource_record_type
-  }] : []
+  value = var.domain_name != "" ? [
+    for dvo in aws_acm_certificate.platform[0].domain_validation_options : {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  ] : []
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ACM Sertifika (eu-central-1 — CloudFront gerektirmediği için us-east-1 GEREKMEZ)
+# ACM Sertifikaları (eu-central-1)
+# Platform ve wildcard AYRI sertifikalar: aynı sertifikada iluvcode.art ile
+# *.iluvcode.art tek doğrulama kaydını paylaşır ve terraform count'u plan
+# zamanında çözemez. Ayrı sertifikalar → her birinin kayıtları kendine ait.
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Platform sertifikası — iluvcode.art + www
 resource "aws_acm_certificate" "platform" {
   count                     = var.domain_name != "" ? 1 : 0
   domain_name               = var.domain_name
@@ -208,6 +209,16 @@ resource "aws_acm_certificate" "platform" {
 
   lifecycle { create_before_destroy = true }
   tags = { Name = "${var.name_prefix}-platform-ssl" }
+}
+
+# Wildcard sertifikası — *.iluvcode.art (yayınlanan siteler)
+resource "aws_acm_certificate" "wildcard" {
+  count             = var.domain_name != "" ? 1 : 0
+  domain_name       = "*.${var.domain_name}"
+  validation_method = "DNS"
+
+  lifecycle { create_before_destroy = true }
+  tags = { Name = "${var.name_prefix}-wildcard-ssl" }
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

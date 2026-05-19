@@ -81,6 +81,31 @@ resource "aws_sqs_queue" "notifications" {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 3b. SQS — AI Jobs Queue
+# Asenkron AI işleri (plan / execute / solve) → ai-worker Lambda
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "aws_sqs_queue" "ai_jobs_dlq" {
+  name                      = "${var.name_prefix}-ai-jobs-dlq"
+  message_retention_seconds = 1209600
+  tags                      = { Name = "${var.name_prefix}-ai-jobs-dlq" }
+}
+
+resource "aws_sqs_queue" "ai_jobs" {
+  name                       = "${var.name_prefix}-ai-jobs"
+  visibility_timeout_seconds = 900 # AI işi ~2dk sürebilir; worker 900s timeout
+  message_retention_seconds  = 86400
+  receive_wait_time_seconds  = 20
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.ai_jobs_dlq.arn
+    maxReceiveCount     = 2
+  })
+
+  tags = { Name = "${var.name_prefix}-ai-jobs" }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 4. EventBridge — Kullanıcı etkileşim eventleri
 # Tıklama, sipariş, ürün görüntüleme → Öneri sistemi
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -130,6 +155,14 @@ output "sqs_notifications_queue_arn" {
 
 output "sqs_notifications_queue_url" {
   value = aws_sqs_queue.notifications.url
+}
+
+output "sqs_ai_jobs_queue_arn" {
+  value = aws_sqs_queue.ai_jobs.arn
+}
+
+output "sqs_ai_jobs_queue_url" {
+  value = aws_sqs_queue.ai_jobs.url
 }
 
 output "eventbridge_bus_arn" {

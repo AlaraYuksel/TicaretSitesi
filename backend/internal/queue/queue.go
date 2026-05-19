@@ -31,6 +31,12 @@ type FinanceMessage struct {
 	TrackingCode string `json:"tracking_code"`
 }
 
+// AIJobMessage, bir AI işi başlatıldığında ai-jobs kuyruğuna yazılır.
+// Worker, job_id ile işin tüm detayını DB'den (ai_jobs) okur.
+type AIJobMessage struct {
+	JobID string `json:"job_id"`
+}
+
 // Sender, tek bir SQS kuyruğuna JSON mesaj gönderir.
 type Sender struct {
 	client *sqs.Client

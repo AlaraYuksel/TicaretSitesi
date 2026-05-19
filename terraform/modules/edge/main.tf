@@ -30,8 +30,8 @@ variable "cloudflare_zone_id"     { type = string }
 # API Gateway custom domain hedefi (xxx.execute-api.eu-central-1.amazonaws.com)
 variable "api_gw_custom_domain_target" { type = string }
 
-# Lambda Function URL domain (xxx.lambda-url.eu-central-1.on.aws)
-variable "domain_router_url_domain" { type = string }
+# Wildcard API Gateway custom domain hedefi (*.iluvcode.art → domain-router)
+variable "wildcard_api_domain_target" { type = string }
 
 # ACM sertifika doğrulama bilgileri
 variable "acm_cert_validation_records" {
@@ -43,15 +43,7 @@ variable "acm_cert_validation_records" {
   default = []
 }
 
-# AI Lambda Function URL domain'leri (SSE streaming endpoint'leri)
-variable "ai_site_builder_url_domain" {
-  type    = string
-  default = ""
-}
-variable "ai_solver_url_domain" {
-  type    = string
-  default = ""
-}
+# AI artık ana API Gateway üzerinden (asenkron iş kuyruğu) — ayrı subdomain yok.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DNS Kayıtları  (Zone + SSL ayarları kök modüle taşındı — cycle önlemi)
@@ -77,40 +69,15 @@ resource "cloudflare_record" "platform_www" {
   comment = "Platform WWW"
 }
 
-# Wildcard → Lambda Function URL (Published Sites)
-# ahmet.iluvcode.art → Domain Router Lambda
+# Wildcard → Wildcard API Gateway (Published Sites)
+# ahmet.iluvcode.art → Wildcard API Gateway → domain-router Lambda
 resource "cloudflare_record" "wildcard_sites" {
   zone_id = var.cloudflare_zone_id
   name    = "*"
-  content = var.domain_router_url_domain
+  content = var.wildcard_api_domain_target
   type    = "CNAME"
-  proxied = true  # Cloudflare CDN + Universal SSL
-  comment = "Published Sites - Domain Router Lambda"
-}
-
-# AI Site Builder → Lambda Function URL (SSE streaming)
-# ai-builder.iluvcode.art → ai-site-builder Lambda
-# proxied=true: tarayıcı iluvcode.art TLS sertifikasını görür (Function URL'in
-# kendi sertifikası ai-builder.iluvcode.art ile eşleşmez). Cloudflare proxy'si
-# text/event-stream yanıtlarını buffer'lamaz — SSE sorunsuz akar.
-resource "cloudflare_record" "ai_site_builder" {
-  zone_id = var.cloudflare_zone_id
-  name    = "ai-builder"
-  content = var.ai_site_builder_url_domain
-  type    = "CNAME"
-  proxied = true
-  comment = "AI Site Builder - Lambda Function URL (streaming)"
-}
-
-# AI Solver → Lambda Function URL (SSE streaming)
-# ai-solver.iluvcode.art → ai-solver Lambda
-resource "cloudflare_record" "ai_solver" {
-  zone_id = var.cloudflare_zone_id
-  name    = "ai-solver"
-  content = var.ai_solver_url_domain
-  type    = "CNAME"
-  proxied = true
-  comment = "AI Solver - Lambda Function URL (streaming)"
+  proxied = true # Cloudflare CDN + Universal SSL
+  comment = "Published Sites - Wildcard API Gateway"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

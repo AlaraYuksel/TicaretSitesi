@@ -232,6 +232,10 @@ module "ai" {
 
   api_gateway_id          = module.compute.api_gateway_id
   api_gateway_execution_arn = module.compute.api_gateway_execution_arn
+
+  # AI iş kuyruğu (ai-api gönderir, ai-worker tüketir)
+  sqs_ai_jobs_queue_arn = module.async.sqs_ai_jobs_queue_arn
+  sqs_ai_jobs_queue_url = module.async.sqs_ai_jobs_queue_url
 }
 
 # ── 6. EDGE KATMANI ─────────────────────────────────────────────────────────
@@ -249,12 +253,8 @@ module "edge" {
   # API Gateway Custom Domain hedefi
   api_gw_custom_domain_target = module.compute.api_gw_custom_domain_target
 
-  # Lambda Function URL domain (wildcard subdomain'ler için)
-  domain_router_url_domain = module.compute.domain_router_url_domain
-
-  # AI Lambda Function URL domain'leri (ai-builder / ai-solver subdomain'leri)
-  ai_site_builder_url_domain = module.ai.site_builder_url_domain
-  ai_solver_url_domain       = module.ai.ai_solver_url_domain
+  # Wildcard API Gateway hedefi (*.iluvcode.art → domain-router)
+  wildcard_api_domain_target = module.compute.wildcard_api_domain_target
 
   # ACM sertifika DNS doğrulaması Cloudflare üzerinden
   acm_cert_validation_records = module.compute.acm_cert_validation_records

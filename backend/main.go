@@ -188,18 +188,18 @@ func main() {
 	mux.Handle("POST /api/seller/marketplace-orders/{id}/release-escrow", auth(http.HandlerFunc(sellerOrdersHandler.ReleaseEscrow)))
 	mux.Handle("GET /api/seller/balance", auth(http.HandlerFunc(sellerOrdersHandler.Balance)))
 
-	// ── 🤖 AI Site Builder (Gemini) ──────────────────────────────────────────
-	// Sadece GEMINI_API_KEY varsa kayıtlı; yoksa route'lar 404 döner.
+	// ── 🤖 AI — Asenkron iş kuyruğu ──────────────────────────────────────────
+	// Frontend job-tabanlı async API kullanır (başlat + poll). Lokal monolitte
+	// SQS yok → AIJobHandler işleri arka plan goroutine'inde çalıştırır
+	// (prod'da ai-api + ai-worker Lambda + SQS).
+	aiJobHandler := handler.NewAIJobHandler(store, nil, aiSiteBuilderHandler, aiSolverHandler)
+	mux.Handle("GET /api/ai/jobs/{id}", auth(http.HandlerFunc(aiJobHandler.GetJob)))
 	if aiSiteBuilderHandler != nil {
-		mux.Handle("POST /api/ai/build-site/plan", auth(http.HandlerFunc(aiSiteBuilderHandler.PlanSite)))
-		mux.Handle("POST /api/ai/build-site/execute", auth(http.HandlerFunc(aiSiteBuilderHandler.ExecutePlan)))
+		mux.Handle("POST /api/ai/build-site/plan", auth(http.HandlerFunc(aiJobHandler.StartPlan)))
+		mux.Handle("POST /api/ai/build-site/execute", auth(http.HandlerFunc(aiJobHandler.StartExecute)))
 	}
-
-	// ── 🧩 AI Çözüm Asistanı (Marketplace sorun çözücü) ──────────────────────
-	// solve: auth gerektirmez (herkes deneyebilir). solutions: auth zorunlu —
-	// çözümler yalnızca oluşturan kullanıcının hesabından erişilir.
 	if aiSolverHandler != nil {
-		mux.HandleFunc("POST /api/marketplace/ai-solver/solve", aiSolverHandler.Solve)
+		mux.Handle("POST /api/marketplace/ai-solver/solve", auth(http.HandlerFunc(aiJobHandler.StartSolve)))
 		mux.Handle("POST /api/marketplace/ai-solver/solutions", auth(http.HandlerFunc(aiSolverHandler.SaveSolution)))
 		mux.Handle("GET /api/marketplace/ai-solver/solutions", auth(http.HandlerFunc(aiSolverHandler.ListSolutions)))
 		mux.Handle("GET /api/marketplace/ai-solver/solutions/{id}", auth(http.HandlerFunc(aiSolverHandler.GetSolution)))

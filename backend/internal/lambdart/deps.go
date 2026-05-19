@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,10 @@ import (
 	"go-backend-projem/internal/middleware"
 	"go-backend-projem/internal/payments"
 	"go-backend-projem/internal/queue"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -55,6 +60,9 @@ type Deps struct {
 	// AI handler'ları GEMINI_API_KEY yoksa nil kalır.
 	AISiteBuilder *handler.AISiteBuilderHandler
 	AISolver      *handler.AISolverHandler
+
+	// AIJobs — asenkron AI iş kuyruğu HTTP handler'ı (ai-api Lambda).
+	AIJobs *handler.AIJobHandler
 }
 
 var (
@@ -145,6 +153,9 @@ func build() (*Deps, error) {
 		d.AISolver = sv
 	}
 
+	// AI iş kuyruğu handler'ı — queue wireQueues'ta bağlanır.
+	d.AIJobs = handler.NewAIJobHandler(store, nil, d.AISiteBuilder, d.AISolver)
+
 	wireQueues(ctx, d)
 	return d, nil
 }
@@ -152,18 +163,37 @@ func build() (*Deps, error) {
 // wireQueues, ilgili SQS kuyruk URL'leri ortamda tanımlıysa publish/finance
 // hook'larını bağlar. URL yoksa (lokal/Docker) hook nil kalır.
 func wireQueues(ctx context.Context, d *Deps) {
-	if url := os.Getenv("SQS_PUBLISH_URL"); url != "" {
-		if sender, err := queue.NewSender(ctx, url); err != nil {
-			log.Printf("lambdart: publish SQS gönderici kurulamadı: %v", err)
+	// Publish: frontend'in ürettiği tam HTML'i S3'e {subdomain}/index.html
+	// olarak yazar. domain-router bunu *.iluvcode.art isteklerinde serve eder.
+	if bucket := os.Getenv("S3_PUBLISHED_BUCKET"); bucket != "" {
+		if awsCfg, err := awsconfig.LoadDefaultConfig(ctx); err != nil {
+			log.Printf("lambdart: publish S3 client kurulamadı: %v", err)
 		} else {
-			d.Site.OnPublish = func(ctx context.Context, site *db.Site) {
+			s3c := s3.NewFromConfig(awsCfg)
+			d.Site.OnPublish = func(ctx context.Context, site *db.Site, html string) {
 				sub := ""
 				if site.Subdomain != nil {
 					sub = *site.Subdomain
 				}
-				msg := queue.PublishMessage{SiteID: site.ID, UserID: site.UserID, Subdomain: sub}
-				if err := sender.Send(ctx, msg); err != nil {
-					log.Printf("lambdart: publish SQS gönderimi başarısız: %v", err)
+				if sub == "" {
+					log.Printf("lambdart: site %s subdomain'siz — yayınlanamaz", site.ID)
+					return
+				}
+				if strings.TrimSpace(html) == "" {
+					log.Printf("lambdart: publish HTML boş (site=%s) — S3'e yazılmadı", site.ID)
+					return
+				}
+				key := sub + "/index.html"
+				_, err := s3c.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:      aws.String(bucket),
+					Key:         aws.String(key),
+					Body:        strings.NewReader(html),
+					ContentType: aws.String("text/html; charset=utf-8"),
+				})
+				if err != nil {
+					log.Printf("lambdart: publish S3 yazımı başarısız (%s): %v", key, err)
+				} else {
+					log.Printf("lambdart: %s yayınlandı (%d byte)", key, len(html))
 				}
 			}
 		}
@@ -183,6 +213,14 @@ func wireQueues(ctx context.Context, d *Deps) {
 					log.Printf("lambdart: finance SQS gönderimi başarısız: %v", err)
 				}
 			}
+		}
+	}
+
+	if url := os.Getenv("SQS_AIJOBS_URL"); url != "" {
+		if sender, err := queue.NewSender(ctx, url); err != nil {
+			log.Printf("lambdart: ai-jobs SQS gönderici kurulamadı: %v", err)
+		} else {
+			d.AIJobs = handler.NewAIJobHandler(d.Store, sender, d.AISiteBuilder, d.AISolver)
 		}
 	}
 }

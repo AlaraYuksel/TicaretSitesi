@@ -6,12 +6,6 @@
 
 const API_BASE = '/api';
 
-// AI endpoint'leri ayrı Lambda Function URL'lerinde çalışır (SSE streaming).
-// Lokal/dev'de bu env'ler boştur → Vite proxy üzerinden /api'ye gider.
-// Prod'da deploy script'i bunları ai-builder/ai-solver subdomain'lerine ayarlar.
-const AI_BUILDER_BASE = (import.meta.env.VITE_AI_BUILDER_URL || '') + '/api';
-const AI_SOLVER_BASE  = (import.meta.env.VITE_AI_SOLVER_URL || '') + '/api';
-
 // ─── Token Yönetimi ──────────────────────────────────────────────────────────
 
 export function getToken() {
@@ -32,7 +26,7 @@ export function isAuthenticated() {
 
 // ─── Fetch Wrapper ───────────────────────────────────────────────────────────
 
-async function apiFetch(path, options = {}, base = API_BASE) {
+async function apiFetch(path, options = {}) {
   const token = getToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -40,7 +34,7 @@ async function apiFetch(path, options = {}, base = API_BASE) {
     ...options.headers,
   };
 
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
@@ -115,9 +109,12 @@ export async function apiSaveSiteData(id, siteData) {
   });
 }
 
-export async function apiPublishSite(id) {
+// Siteyi yayınlar. html: editör önizlemesiyle birebir tam statik HTML —
+// backend bunu S3'e {subdomain}/index.html olarak yazar.
+export async function apiPublishSite(id, html) {
   return apiFetch(`/sites/${id}/publish`, {
     method: 'POST',
+    body: JSON.stringify({ html: html || '' }),
   });
 }
 
@@ -209,146 +206,96 @@ export async function apiMarketplaceGetOrder(orderNumber) {
   return res.json();
 }
 
-// ─── AI Site Builder (Gemini) ────────────────────────────────────────────────
+// ─── AI — Asenkron iş kuyruğu (başlat + poll) ────────────────────────────────
+//
+// AI işlemleri sunucuda asenkron çalışır: başlat → { job_id } → GET /ai/jobs/{id}
+// poll. İlerleme olayları job.events dizisinde birikir; poll bunları onEvent'e
+// aktarır (eski SSE arayüzü korunur, sadece push yerine ~1.5sn poll).
 
-// Plan üret — yarı otonom akışın 1. adımı. Kullanıcı bunu onaylar.
-export async function apiAIPlanSite(siteId, prompt, style) {
-  return apiFetch('/ai/build-site/plan', {
-    method: 'POST',
-    body: JSON.stringify({ site_id: siteId, prompt, style: style || 'modern' }),
-  }, AI_BUILDER_BASE);
+const AI_POLL_INTERVAL = 1500; // ms
+const AI_POLL_MAX = 400;       // ~10 dk üst sınır
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-// Plan uygula — SSE ile progress stream'i.
-// onEvent her olayda { type, ...payload } ile çağrılır.
-// Geri dönen fonksiyon stream'i iptal eder.
-export function apiAIExecutePlan(planId, siteId, onEvent) {
-  const token = getToken();
-  const controller = new AbortController();
-
-  (async () => {
-    try {
-      const res = await fetch(`${AI_BUILDER_BASE}/ai/build-site/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ plan_id: planId, site_id: siteId }),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        onEvent({ type: 'error', message: body.error || `HTTP ${res.status}` });
-        return;
-      }
-      if (!res.body) {
-        onEvent({ type: 'error', message: 'Stream desteklenmiyor' });
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        // SSE event delimitter: çift newline
-        let idx;
-        while ((idx = buffer.indexOf('\n\n')) !== -1) {
-          const raw = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-          // "data: " prefix'ini sıyır
-          const line = raw.split('\n').find(l => l.startsWith('data: '));
-          if (!line) continue;
-          try {
-            onEvent(JSON.parse(line.slice(6)));
-          } catch (e) {
-            console.error('SSE parse hatası', e, line);
-          }
-        }
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        onEvent({ type: 'error', message: err.message || String(err) });
+// pollAIJob — bir AI işini status done/error olana kadar poll eder.
+// onEvent verilirse job.events'teki yeni olayları sırayla iletir.
+// isCancelled() true dönerse durur.
+async function pollAIJob(jobId, onEvent, isCancelled) {
+  let seen = 0;
+  for (let i = 0; i < AI_POLL_MAX; i++) {
+    if (isCancelled && isCancelled()) return null;
+    const job = await apiFetch(`/ai/jobs/${jobId}`);
+    if (onEvent && Array.isArray(job.events)) {
+      for (; seen < job.events.length; seen++) {
+        if (isCancelled && isCancelled()) return null;
+        onEvent(job.events[seen]);
       }
     }
-  })();
+    if (job.status === 'done' || job.status === 'error') return job;
+    await sleep(AI_POLL_INTERVAL);
+  }
+  throw new Error('AI işi zaman aşımına uğradı');
+}
 
-  return () => controller.abort();
+// ─── AI Site Builder ─────────────────────────────────────────────────────────
+
+// Plan üret — plan işini başlatır, tamamlanana kadar bekler.
+// Döner: { plan_id, plan }. plan_id aslında PLAN İŞİ id'sidir — apiAIExecutePlan
+// bunu plan_job_id olarak kullanır (arayan için opak token).
+export async function apiAIPlanSite(siteId, prompt, style) {
+  const { job_id } = await apiFetch('/ai/build-site/plan', {
+    method: 'POST',
+    body: JSON.stringify({ site_id: siteId, prompt, style: style || 'modern' }),
+  });
+  const job = await pollAIJob(job_id);
+  if (!job || job.status === 'error') {
+    throw new Error((job && job.error) || 'Plan üretilemedi');
+  }
+  const result = job.result || {};
+  return { plan_id: job_id, plan: result.plan };
+}
+
+// Plan uygula — execute işini başlatır, ilerlemeyi poll eder.
+// planJobId: apiAIPlanSite'in döndürdüğü plan_id (plan işi id'si).
+// onEvent her olayda { type, ...payload } ile çağrılır.
+// Geri dönen fonksiyon poll'u iptal eder.
+export function apiAIExecutePlan(planJobId, siteId, onEvent) {
+  let cancelled = false;
+  (async () => {
+    try {
+      const { job_id } = await apiFetch('/ai/build-site/execute', {
+        method: 'POST',
+        body: JSON.stringify({ plan_job_id: planJobId, site_id: siteId }),
+      });
+      await pollAIJob(job_id, onEvent, () => cancelled);
+    } catch (err) {
+      if (!cancelled) onEvent({ type: 'error', message: err.message || String(err) });
+    }
+  })();
+  return () => { cancelled = true; };
 }
 
 // ─── AI Çözüm Asistanı (Marketplace sorun çözücü) ────────────────────────────
 
-// Sorunu çöz — SSE ile adım adım yayın. onEvent her olayda { type, ... } alır.
+// Sorunu çöz — solve işini başlatır, ilerlemeyi poll eder.
 // Olay tipleri: started, step, analyzed, searched, done, error.
-// Geri dönen fonksiyon stream'i iptal eder.
+// Geri dönen fonksiyon poll'u iptal eder.
 export function apiAISolverSolve(problem, onEvent) {
-  const token = getToken();
-  const controller = new AbortController();
-
-  // Akış done/error ile bitmezse (bağlantı koparsa) butonun kalıcı kilitlenmemesi
-  // için terminal bir olay görüp görmediğimizi takip ederiz.
-  let gotTerminal = false;
-  const relay = (ev) => {
-    if (ev && (ev.type === 'done' || ev.type === 'error')) gotTerminal = true;
-    onEvent(ev);
-  };
-
+  let cancelled = false;
   (async () => {
     try {
-      const res = await fetch(`${AI_SOLVER_BASE}/marketplace/ai-solver/solve`, {
+      const { job_id } = await apiFetch('/marketplace/ai-solver/solve', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ problem }),
-        signal: controller.signal,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        relay({ type: 'error', message: body.error || `HTTP ${res.status}` });
-        return;
-      }
-      if (!res.body) {
-        relay({ type: 'error', message: 'Stream desteklenmiyor' });
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx;
-        while ((idx = buffer.indexOf('\n\n')) !== -1) {
-          const raw = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-          const line = raw.split('\n').find(l => l.startsWith('data: '));
-          if (!line) continue;
-          try {
-            relay(JSON.parse(line.slice(6)));
-          } catch (e) {
-            console.error('SSE parse hatası', e, line);
-          }
-        }
-      }
-      // Stream done/error olmadan kapandı → sunucu bağlantısı koptu.
-      if (!gotTerminal) {
-        relay({ type: 'error', message: 'Sunucu bağlantısı beklenmedik şekilde kapandı. Lütfen tekrar deneyin.' });
-      }
+      await pollAIJob(job_id, onEvent, () => cancelled);
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        relay({ type: 'error', message: err.message || String(err) });
-      }
+      if (!cancelled) onEvent({ type: 'error', message: err.message || String(err) });
     }
   })();
-
-  return () => controller.abort();
+  return () => { cancelled = true; };
 }
 
 // Çözümü kaydet — auth zorunlu. payload: { problem_text, analysis, package }.
@@ -356,17 +303,17 @@ export async function apiAISolverSaveSolution(payload) {
   return apiFetch('/marketplace/ai-solver/solutions', {
     method: 'POST',
     body: JSON.stringify(payload),
-  }, AI_SOLVER_BASE);
+  });
 }
 
 // Kullanıcının kayıtlı çözümleri — auth zorunlu.
 export async function apiAISolverListSolutions() {
-  return apiFetch('/marketplace/ai-solver/solutions', {}, AI_SOLVER_BASE);
+  return apiFetch('/marketplace/ai-solver/solutions');
 }
 
 // Tek çözüm — auth zorunlu, yalnızca sahibi erişir.
 export async function apiAISolverGetSolution(id) {
-  return apiFetch(`/marketplace/ai-solver/solutions/${id}`, {}, AI_SOLVER_BASE);
+  return apiFetch(`/marketplace/ai-solver/solutions/${id}`);
 }
 
 // ─── Marketplace Alıcı: Profil + Adresler + Kayıtlı Kartlar (Auth) ───────────

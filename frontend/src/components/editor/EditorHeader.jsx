@@ -602,9 +602,12 @@ export default function EditorHeader({ siteId, siteTitle }) {
       const { apiSaveSiteData, apiPublishSite } = await import('../../lib/api');
       await apiSaveSiteData(siteId, { pages, canvasHeights });
       setSaveStatus('saved');
-      
+
       setPublishStatus('publishing');
-      await apiPublishSite(siteId);
+      // Editör önizlemesiyle birebir aynı tam HTML'i üret ve gönder —
+      // backend bunu S3'e yazar (basit Go renderer'ı yerine).
+      const fullHTML = generateHTML(pages);
+      await apiPublishSite(siteId, fullHTML);
       setPublishStatus('published');
       setTimeout(() => {
         setPublishStatus('idle');

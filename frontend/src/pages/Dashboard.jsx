@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [showNewSiteModal, setShowNewSiteModal] = useState(false);
   const [newSiteTitle, setNewSiteTitle] = useState('');
+  const [newSiteSubdomain, setNewSiteSubdomain] = useState('');
 
   // Siteleri yükle
   useEffect(() => {
@@ -40,9 +41,10 @@ export default function Dashboard() {
     if (!newSiteTitle.trim()) return;
     try {
       setCreating(true);
-      const site = await apiCreateSite(newSiteTitle.trim());
+      const site = await apiCreateSite(newSiteTitle.trim(), newSiteSubdomain.trim() || undefined);
       setShowNewSiteModal(false);
       setNewSiteTitle('');
+      setNewSiteSubdomain('');
       navigate(`/editor/${site.id}`);
     } catch (err) {
       console.error('Site oluşturulamadı:', err);
@@ -198,16 +200,36 @@ export default function Dashboard() {
             <h2 className="text-xl font-bold text-on-surface mb-2">Yeni Site Oluştur</h2>
             <p className="text-on-surface-variant text-sm mb-6">Sitenize bir isim verin ve başlayın.</p>
             
-            <input 
+            <input
               type="text"
               placeholder="Site adı (ör: Portfolyom)"
               value={newSiteTitle}
               onChange={e => setNewSiteTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateSite()}
               autoFocus
-              className="w-full px-4 py-3 bg-[#141414] border border-white/10 rounded-xl text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all mb-6"
+              className="w-full px-4 py-3 bg-[#141414] border border-white/10 rounded-xl text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all mb-4"
             />
-            
+
+            {/* Subdomain — yayın adresi */}
+            <label className="block text-on-surface-variant text-xs mb-1.5">Yayın adresi (subdomain)</label>
+            <div className="flex items-center bg-[#141414] border border-white/10 rounded-xl overflow-hidden focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              <input
+                type="text"
+                placeholder="ornek"
+                value={newSiteSubdomain}
+                onChange={e => setNewSiteSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && handleCreateSite()}
+                maxLength={63}
+                className="flex-1 px-4 py-3 bg-transparent text-on-surface placeholder:text-on-surface-variant/50 outline-none"
+              />
+              <span className="px-3 text-on-surface-variant/60 text-sm select-none whitespace-nowrap">.iluvcode.art</span>
+            </div>
+            <p className="text-on-surface-variant/50 text-xs mt-1.5 mb-6">
+              {newSiteSubdomain
+                ? `Siteniz yayınlanınca: https://${newSiteSubdomain}.iluvcode.art`
+                : 'Boş bırakılırsa site bir URL ile yayınlanamaz.'}
+            </p>
+
             <div className="flex gap-3 justify-end">
               <button 
                 onClick={() => setShowNewSiteModal(false)}
